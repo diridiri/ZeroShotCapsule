@@ -10,11 +10,11 @@ from gensim.models.keyedvectors import KeyedVectors
 # use below for korean training
 data_prefix = '../data/aihub_data/'
 word2vec_path = data_prefix+'ko.vec'
-training_data_path = data_prefix + '/full/existing.txt'
-test_data_path = data_prefix + '/full/emerging.txt'
+training_data_path = data_prefix + '/existing_e.txt'
+test_data_path = data_prefix + '/emerging_e.txt'
 
-seen_intent = ['음식점', '의류', '학원', '소매점', '생활 서비스', '카페', '숙박 업', '관광 여가 오락']
-unseen_intent = ['미술 학원', '배달 음식점', '신발']
+seen_intent = ['음식점', '의류', '학원', '소매점', '화장품']
+unseen_intent = ['배달 음식점', '신발']
 """
 
 # use below for english training

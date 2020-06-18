@@ -11,7 +11,7 @@ class lstm_model():
         for users' questions
     """
 
-    def __init__(self, FLAGS, initializer= tf.initializers.GlorotUniform()):
+    def __init__(self, FLAGS, initializer= tf.keras.initializers.glorot_uniform()):
        # tf.contrib.layers.xavier_initializer()):
         """
             lstm class initialization

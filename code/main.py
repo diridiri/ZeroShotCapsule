@@ -24,7 +24,7 @@ def setting(data):
     tf.compat.v1.flags.DEFINE_float("keep_prob", 0.8, "embedding dropout keep rate")
     tf.compat.v1.flags.DEFINE_integer("hidden_size", 32, "embedding vector size")
     tf.compat.v1.flags.DEFINE_integer("batch_size", 64, "vocab size of word vectors")
-    tf.compat.v1.flags.DEFINE_integer("num_epochs", 100, "num of epochs")
+    tf.compat.v1.flags.DEFINE_integer("num_epochs", 500, "num of epochs")
     tf.compat.v1.flags.DEFINE_integer("vocab_size", vocab_size, "vocab size of word vectors")
     tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentence")
     tf.compat.v1.flags.DEFINE_integer("sample_num", sample_num, "sample number of training data")

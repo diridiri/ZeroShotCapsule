@@ -8,6 +8,7 @@ from gensim.models.keyedvectors import KeyedVectors
 
 
 # use below for korean training
+'''
 data_prefix = '../data/aihub_data/'
 word2vec_path = data_prefix+'ko.vec'
 training_data_path = data_prefix + '/existing_e.txt'
@@ -15,17 +16,16 @@ test_data_path = data_prefix + '/emerging_e.txt'
 
 ex_intent = ['음식점', '의류', '학원', '소매점', '화장품']
 em_intent = ['배달 음식점', '신발']
-"""
+'''
 
 # use below for english training
 data_prefix = '../data/nlu_data/'
 word2vec_path = data_prefix+'wiki.en.vec'
-training_data_path = data_prefix + 'train_shuffle.txt'
-test_data_path = data_prefix + 'test.txt'
+training_data_path = data_prefix + 'train_multi.txt'
+test_data_path = data_prefix + 'test_multi.txt'
 
-seen_intent = ['music', 'search', 'movie', 'weather', 'restaurant']
-unseen_intent = ['playlist', 'book']
-"""
+ex_intent = ['play music', 'search creative work', 'search screening event', 'get weather', 'book restaurant']
+em_intent = ['add to playlist', 'rate book']
 
 
 

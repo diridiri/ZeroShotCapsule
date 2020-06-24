@@ -10,7 +10,7 @@ from tqdm import tqdm
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import normalize
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, KFold
 
 a = Random()
 a.seed(1)
@@ -26,9 +26,9 @@ def setting(data):
     tf.compat.v1.flags.DEFINE_float("keep_prob", 0.8, "embedding dropout keep rate")
     tf.compat.v1.flags.DEFINE_integer("hidden_size", 32, "embedding vector size")
     tf.compat.v1.flags.DEFINE_integer("batch_size", 64, "vocab size of word vectors")
-    tf.compat.v1.flags.DEFINE_integer("num_epochs", 200, "num of epochs")
+    tf.compat.v1.flags.DEFINE_integer("num_epochs", 100, "num of epochs")
     tf.compat.v1.flags.DEFINE_integer("vocab_size", vocab_size, "vocab size of word vectors")
-    tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentence")
+    tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentesnce")
     tf.compat.v1.flags.DEFINE_integer("sample_num", sample_num, "sample number of training data")
     tf.compat.v1.flags.DEFINE_integer("test_num", test_num, "number of test data")
     tf.compat.v1.flags.DEFINE_integer("s_cnum", s_cnum, "seen class num")
@@ -246,6 +246,9 @@ if __name__ == "__main__":
     label_em=data['label_em']
     label_em_len=data['label_em_len']
 
+    ex_n_len=np.concatenate((x_ex, np.reshape(ex_len, (1,-1)).T), axis=1)
+    #print(ex_n_len[:3])
+
     # load settings
     FLAGS = setting(data)
 
@@ -266,7 +269,9 @@ if __name__ == "__main__":
             if FLAGS.use_embedding: #load pre-trained word embedding
                 assign_pretrained_word_embedding(sess, data, lstm)
 
-        xex_train, xex_test, yex_train, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, random_state=42)
+        kf=KFold(n_splits=3, shuffle=True)
+
+        #xex_train, xex_test, yex_train, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, random_state=42)
         
         best_caps_acc = 0
         best_zsl_acc = 0
@@ -274,56 +279,88 @@ if __name__ == "__main__":
         var_saver = tf.compat.v1.train.Saver()
 
         # Training cycle
-        batch_num = math.ceil(len(xex_train)/FLAGS.batch_size)
-        for epoch in range(FLAGS.num_epochs):
+        num_k=1
+        for train_idx, val_idx in kf.split(ex_n_len, y_idx):
+            train_x=ex_n_len[train_idx]
+            # train_x=[item[:-1] for item in train_x]
+            train_x=train_x[:,:-1]
+            # train_len=[item[-1] for item in train_x]
+            train_len=train_x[:,-1]
+            train_ind=y_idx[train_idx]
 
-            for batch in tqdm(range(batch_num)):
-                batch_index = generate_batch(len(xex_train), FLAGS.batch_size)
-                batch_x = xex_train[batch_index]
-                #batch_y_id = yex_train[batch_index]
-                batch_len = ex_len_train[batch_index]
-                batch_ind = y_idx_train[batch_index]
+            val_x=ex_n_len[val_idx]
+            # val_x=[item[:-1] for item in val_x]
+            val_x=val_x[:,:-1]
+            val_len=val_x[:,-1]
+            # val_len=[item[-1] for item in val_x]
+            val_ind=y_idx[val_idx]
 
-                [_, loss, _] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
-                        feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
+            for epoch in range(FLAGS.num_epochs):
 
-            #print("=================================================================================")
+                total_batch=math.ceil(train_x.shape[0]/FLAGS.batch_size)
+                for batch in tqdm(range(total_batch)):
+                    #batch_index = generate_batch(len(train_x), FLAGS.batch_size)
+                    begin=batch*FLAGS.batch_size
+                    end=min(train_x.shape[0], (batch+1)*FLAGS.batch_size)
+                    batch_x = train_x[begin:end]
+                    batch_len = train_len[begin:end]
+                    batch_ind = train_ind[begin:end]
+                    # print(np.shape(batch_x))
+                    # print(np.shape(batch_len))
+                    # print(np.shape(batch_ind))
+                    [_, loss, _] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
+                            feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
 
-            # check INTENTCAPSNET performance
-            total_seen_pred = np.array([], dtype=np.int64)
-            batch_tr = xex_test
-            batch_len = ex_len_test
-            batch_ind = y_idx_test
+                print("K: %d - Epoch %d/%d - loss: %f " % (num_k, epoch, max(0, FLAGS.num_epochs-1), loss))
+                
+                total_seen_pred = np.array([], dtype=np.int64)
+                logits = sess.run(lstm.logits, 
+                    feed_dict={lstm.input_x: val_x, lstm.s_len: val_len})
+                test_batch_pred = np.argmax(logits, 1)
+                total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
 
-            [_, _, logits] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
-                        feed_dict={lstm.input_x: batch_tr, lstm.IND: batch_ind, lstm.s_len: batch_len})
+                cur_caps_acc = accuracy_score(val_ind, total_seen_pred)
+                if cur_caps_acc > best_caps_acc:
+                    best_caps_acc = cur_caps_acc
+                print("Intent Detection Results [INTENTCAPSNET]")
+                print(classification_report(val_ind, total_seen_pred, digits=4))
+                print("Curr CAPS acc: %f - Best CAPS acc: %f" % (cur_caps_acc, best_caps_acc))
+                
+                em_logits = sess.run(lstm.logits, feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
+                data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
+                print("=================================================================================")
+                # check INTENTCAPSNET-ZSL performance
+                cur_zsl_acc=evaluate_zsl(data, FLAGS, sess)
+                if cur_zsl_acc > best_zsl_acc:
+                    best_zsl_acc = cur_zsl_acc
+                    var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1) # save model
+                print("Curr ZSL acc: %f - Best ZSL acc: %f" % (cur_zsl_acc, best_zsl_acc))
+            num_k+=1
 
-            #print(logits)
+                
 
-            test_batch_pred = np.argmax(logits, 1)
-            total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
+            # # check INTENTCAPSNET performance
+            # total_seen_pred = np.array([], dtype=np.int64)
+            # batch_tr = xex_test
+            # batch_len = ex_len_test
+            # batch_ind = y_idx_test
 
+            # logits = sess.run(lstm.logits, feed_dict={lstm.input_x: batch_tr, lstm.IND: batch_ind, lstm.s_len: batch_len})
+
+            # test_batch_pred = np.argmax(logits, 1)
+            # total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
+            
             
 
-            
-            em_logits = sess.run(lstm.logits, feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
-            data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
-            #print(data['em_logits'])
+            # cur_caps_acc = accuracy_score(yex_test, total_seen_pred)
+            # if cur_caps_acc > best_caps_acc:
+            #     best_caps_acc = cur_caps_acc
 
-            cur_caps_acc = accuracy_score(yex_test, total_seen_pred)
-            if cur_caps_acc > best_caps_acc:
-                best_caps_acc = cur_caps_acc
+            # print("Epoch %d/%d - loss: %f " % (epoch, max(0, FLAGS.num_epochs-1), loss))
+            # print("Intent Detection Results [INTENTCAPSNET]")
+            # print(classification_report(yex_test, total_seen_pred, digits=4))
+            # print("Curr CAPS acc: %f - Best CAPS acc: %f" % (cur_caps_acc, best_caps_acc))
+            # print("=================================================================================")
 
-            print("Epoch %d/%d - loss: %f " % (epoch, max(0, FLAGS.num_epochs-1), loss))
-            print("Intent Detection Results [INTENTCAPSNET]")
-            print(classification_report(yex_test, total_seen_pred, digits=4))
-            print("Curr CAPS acc: %f - Best CAPS acc: %f" % (cur_caps_acc, best_caps_acc))
-            print("=================================================================================")
-
-            # check INTENTCAPSNET-ZSL performance
-            cur_zsl_acc=evaluate_zsl(data, FLAGS, sess)
-            if cur_zsl_acc > best_zsl_acc:
-                best_zsl_acc = cur_zsl_acc
-                var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1) # save model
-            print("Curr ZSL acc: %f - Best ZSL acc: %f" % (cur_zsl_acc, best_zsl_acc))
+           
             

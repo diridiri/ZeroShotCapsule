@@ -126,8 +126,13 @@ def evaluate_zsl(data, FLAGS, sess):
 
     # get unseen and seen categories similarity
     # sim shape (8, 34)
-    # sim_ori = get_sim(data)
-    sim_ori = data['em_logits']
+    sim_ori = get_sim(data)
+    
+    # origin_sim, new_sim
+    # similarity = 0.5(1+1/cak)origin_sim+0.5(1-1/k)new_sim
+
+    #sim_ori = data['em_logits']
+
     total_unseen_pred = np.array([], dtype=np.int64)
 
     batch_size  = FLAGS.test_num

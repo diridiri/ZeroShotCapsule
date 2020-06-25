@@ -8,14 +8,14 @@ from gensim.models.keyedvectors import KeyedVectors
 
 
 # use below for korean training
-'''
+
 data_prefix = '../data/aihub_data/'
 word2vec_path = data_prefix+'ko.vec'
-training_data_path = data_prefix + '/existing_e.txt'
-test_data_path = data_prefix + '/emerging_e.txt'
+training_data_path = data_prefix + '/existing_khaiii_.txt'
+test_data_path = data_prefix + '/emerging_khaiii.txt'
 
-ex_intent = ['음식점', '의류', '학원', '소매점', '화장품']
-em_intent = ['배달 음식점', '신발']
+ex_intent = ['음식점','의류','학원','떡 집','제과','정육','과일 채소 판매','화장품','미용실','약국','숙박']
+em_intent = ['음식 배달 문의','의류 색상 문의','방 예약']
 '''
 
 # use below for english training
@@ -26,7 +26,7 @@ test_data_path = data_prefix + 'test_multi.txt'
 
 ex_intent = ['play music', 'search creative work', 'search screening event', 'get weather', 'book restaurant']
 em_intent = ['add to playlist', 'rate book']
-
+'''
 
 
 

@@ -53,69 +53,7 @@ def get_sim(data):
     em = normalize(data['em_vec'])
     sim = tool.compute_label_sim(em, ex, FLAGS.sim_scale)
     return sim
-'''
-def evaluate_train(data, FLAGS, sess):
-    # zero-shot testing state
-    # seen votes shape (110, 2, 34, 10)
-    x_tr = data['x_ex']
-    y_tr_id = data['y_ex']
 
-    s_len = data['s_len']
-
-    # get unseen and seen categories similarity
-    # sim shape (8, 34)
-    #sim_ori = get_sim(data)
-    total_seen_pred = np.array([], dtype=np.int64)
-
-    batch_size = FLAGS.sample_num
-    test_batch = int(math.ceil(FLAGS.sample_num / float(batch_size)))
-    #test_batch = int(math.ceil(FLAGS.test_num / float(FLAGS.batch_size)))
-    for i in range(test_batch):
-        begin_index = i * batch_size
-        end_index = min((i + 1) * batch_size, FLAGS.sample_num)
-        batch_tr = x_tr[begin_index : end_index]
-        batch_len = s_len[begin_index : end_index]
-
-        [attentions, seen_logits, seen_votes, seen_weights_c] = sess.run([
-            lstm.attention, lstm.logits, lstm.votes, lstm.weights_c],
-            feed_dict={lstm.input_x: batch_tr, lstm.s_len: batch_len})
-
-        tr_batch_pred = np.argmax(seen_logits, 1)
-        total_seen_pred = np.concatenate((total_seen_pred, tr_batch_pred))
-
-    print ("           zero-shot intent detection train set performance        ")
-    acc = accuracy_score(y_tr_id, total_seen_pred)
-    print (classification_report(y_tr_id, total_seen_pred, digits=4))
-    return acc
-'''
-'''
-def evaluate_caps(data, FLAGS, sess):
-    x_ex = data['x_ex']
-    y_ex_id = data['y_ex']
-    ex_len = data['ex_len']
-
-    total_seen_pred = np.array([], dtype=np.int64)
-
-    batch_size = FLAGS.sample_num
-    test_batch = int(math.ceil(FLAGS.sample_num / float(batch_size)))
-    for i in range(test_batch):
-        begin_index = i * batch_size
-        end_index = min((i + 1) * batch_size, FLAGS.sample_num)
-        batch_tr = x_tr[begin_index : end_index]
-        batch_len = s_len[begin_index : end_index]
-
-        [attentions, seen_logits, seen_votes, seen_weights_c] = sess.run([
-            lstm.attention, lstm.logits, lstm.votes, lstm.weights_c],
-            feed_dict={lstm.input_x: batch_tr, lstm.s_len: batch_len})
-
-        tr_batch_pred = np.argmax(seen_logits, 1)
-        total_seen_pred = np.concatenate((total_seen_pred, tr_batch_pred))
-
-    print ("           zero-shot intent detection train set performance        ")
-    acc = accuracy_score(y_tr_id, total_seen_pred)
-    print (classification_report(y_tr_id, total_seen_pred, digits=4))
-    return acc
-'''
 def evaluate_zsl(data, FLAGS, sess):
     # zero-shot testing state
     # seen votes shape (110, 2, 34, 10)
@@ -269,93 +207,58 @@ if __name__ == "__main__":
             if FLAGS.use_embedding: #load pre-trained word embedding
                 assign_pretrained_word_embedding(sess, data, lstm)
 
-        kf=KFold(n_splits=3, shuffle=True)
-        #xex_train, xex_test, yex_train, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, random_state=42)
+        xex_train, xex_test, 
+        _, yex_test, 
+        ex_len_train, ex_len_test, 
+        y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
         
         best_caps_acc = 0
         best_zsl_acc = 0
         var_saver = tf.compat.v1.train.Saver()
 
         # Training cycle
-        num_k=1
-        for train_idx, val_idx in kf.split(x_ex):
-            train_x=x_ex[train_idx]
-            train_len=ex_len[train_idx]
-            train_ind=y_idx[train_idx]
-            # train_id=y_ex_id[train_idx]
+        for epoch in range(FLAGS.num_epochs):
+            # training
+            total_batch=math.ceil(xex_train.shape[0]/FLAGS.batch_size)
+            for batch in tqdm(range(total_batch)):
+                begin=batch*FLAGS.batch_size
+                end=min(xex_train.shape[0], (batch+1)*FLAGS.batch_size)
+                batch_x = xex_train[begin:end]
+                batch_len = ex_len_train[begin:end]
+                batch_ind = y_idx_train[begin:end]
 
-            val_x=x_ex[val_idx]
-            val_len=ex_len[val_idx]
-            val_ind=y_idx[val_idx]
-            val_id=y_ex_id[val_idx]
+                [_, train_loss, _] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
+                        feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
 
-            for epoch in range(FLAGS.num_epochs):
-                # training
-                total_batch=math.ceil(train_x.shape[0]/FLAGS.batch_size)
-                for batch in tqdm(range(total_batch)):
-                    #batch_index = generate_batch(len(train_x), FLAGS.batch_size)
-                    begin=batch*FLAGS.batch_size
-                    end=min(train_x.shape[0], (batch+1)*FLAGS.batch_size)
-                    batch_x = train_x[begin:end]
-                    batch_len = train_len[begin:end]
-                    batch_ind = train_ind[begin:end]
+            # validation
+            total_seen_pred = np.array([], dtype=np.int64)
+            [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits], 
+                feed_dict={lstm.input_x: xex_test, lstm.IND: y_idx_test, lstm.s_len: ex_len_test})
 
-                    [_, train_loss, _] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
-                            feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
-
-                # validation
-                total_seen_pred = np.array([], dtype=np.int64)
-                [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits], 
-                    feed_dict={lstm.input_x: val_x, lstm.IND: val_ind, lstm.s_len: val_len})
-
-                print("K: %d - Epoch %d/%d - train loss: %f - val loss: %f" % (num_k, epoch, max(0, FLAGS.num_epochs-1), train_loss, val_loss))
-                
-                test_batch_pred = np.argmax(logits, 1)
-                total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
-                cur_caps_acc = accuracy_score(val_id, total_seen_pred)
-                if cur_caps_acc > best_caps_acc:
-                    best_caps_acc = cur_caps_acc
-                
-                print("Intent Detection Results [INTENTCAPSNET]")
-                print(classification_report(val_id, total_seen_pred, digits=4))
-                print("Curr CAPS acc: %f - Best CAPS acc: %f" % (cur_caps_acc, best_caps_acc))
-                em_logits = sess.run(lstm.logits, 
-                    feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
-                data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
-
-                print("=================================================================================")
-                # check INTENTCAPSNET-ZSL performance
-                cur_zsl_acc=evaluate_zsl(data, FLAGS, sess)
-                if cur_zsl_acc > best_zsl_acc:
-                    best_zsl_acc = cur_zsl_acc
-                    var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1) # save model
-                print("Curr ZSL acc: %f - Best ZSL acc: %f" % (cur_zsl_acc, best_zsl_acc))
-            num_k+=1
-
-                
-
-            # # check INTENTCAPSNET performance
-            # total_seen_pred = np.array([], dtype=np.int64)
-            # batch_tr = xex_test
-            # batch_len = ex_len_test
-            # batch_ind = y_idx_test
-
-            # logits = sess.run(lstm.logits, feed_dict={lstm.input_x: batch_tr, lstm.IND: batch_ind, lstm.s_len: batch_len})
-
-            # test_batch_pred = np.argmax(logits, 1)
-            # total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
+            print("K: %d - Epoch %d/%d - train loss: %f - val loss: %f" % (num_k, epoch, max(0, FLAGS.num_epochs-1), train_loss, val_loss))
             
+            test_batch_pred = np.argmax(logits, 1)
+            total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
+            cur_caps_acc = accuracy_score(yex_test, total_seen_pred)
+            if cur_caps_acc > best_caps_acc:
+                best_caps_acc = cur_caps_acc
             
+            print("Intent Detection Results [INTENTCAPSNET]")
+            print(classification_report(yex_test, total_seen_pred, digits=4))
+            print("Curr CAPS acc: %f - Best CAPS acc: %f" % (cur_caps_acc, best_caps_acc))
 
-            # cur_caps_acc = accuracy_score(yex_test, total_seen_pred)
-            # if cur_caps_acc > best_caps_acc:
-            #     best_caps_acc = cur_caps_acc
+            #########
+            em_logits = sess.run(lstm.logits, 
+                feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
+            data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
+            #########
 
-            # print("Epoch %d/%d - loss: %f " % (epoch, max(0, FLAGS.num_epochs-1), loss))
-            # print("Intent Detection Results [INTENTCAPSNET]")
-            # print(classification_report(yex_test, total_seen_pred, digits=4))
-            # print("Curr CAPS acc: %f - Best CAPS acc: %f" % (cur_caps_acc, best_caps_acc))
-            # print("=================================================================================")
+            print("=================================================================================")
+            # check INTENTCAPSNET-ZSL performance
+            cur_zsl_acc=evaluate_zsl(data, FLAGS, sess)
+            if cur_zsl_acc > best_zsl_acc:
+                best_zsl_acc = cur_zsl_acc
+                var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1) # save model
+            print("Curr ZSL acc: %f - Best ZSL acc: %f" % (cur_zsl_acc, best_zsl_acc))
 
-           
             

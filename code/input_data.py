@@ -12,10 +12,10 @@ from gensim.models.keyedvectors import KeyedVectors
 data_prefix = '../data/aihub_data/'
 word2vec_path = data_prefix+'ko.vec'
 training_data_path = data_prefix + '/existing_khaiii_.txt'
-test_data_path = data_prefix + '/emerging_khaiii.txt'
+test_data_path = data_prefix + '/emerging_khaiii_.txt'
 
 ex_intent = ['음식점','의류','학원','떡 집','제과','정육','과일 채소 판매','화장품','미용실','약국','숙박']
-em_intent = ['음식 배달 문의','의류 색상 문의','방 예약']
+em_intent = ['음식 배달','의류 색상','방 예약']
 '''
 
 # use below for english training

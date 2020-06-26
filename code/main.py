@@ -6,11 +6,13 @@ import tensorflow as tf
 import model
 import tool
 import math
+import time
 from tqdm import tqdm
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import normalize
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split, KFold
+import matplotlib.pyplot as plt
 
 a = Random()
 a.seed(1)
@@ -26,7 +28,7 @@ def setting(data):
     tf.compat.v1.flags.DEFINE_float("keep_prob", 0.8, "embedding dropout keep rate")
     tf.compat.v1.flags.DEFINE_integer("hidden_size", 32, "embedding vector size")
     tf.compat.v1.flags.DEFINE_integer("batch_size", 64, "vocab size of word vectors")
-    tf.compat.v1.flags.DEFINE_integer("num_epochs", 200, "num of epochs")
+    tf.compat.v1.flags.DEFINE_integer("num_epochs", 100, "num of epochs")
     tf.compat.v1.flags.DEFINE_integer("vocab_size", vocab_size, "vocab size of word vectors")
     tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentesnce")
     tf.compat.v1.flags.DEFINE_integer("sample_num", sample_num, "sample number of training data")
@@ -171,6 +173,7 @@ def update_unseen_routing(votes, FLAGS, num_routing=3):
 
 if __name__ == "__main__":
     # load data
+    
     data = input_data.read_datasets()
 
     embedding = data['embedding']
@@ -190,10 +193,19 @@ if __name__ == "__main__":
     # load settings
     FLAGS = setting(data)
 
+    caps_train_loss=[]
+    caps_train_acc=[]
+    
+    caps_val_loss=[]
+    caps_val_acc=[]
+    
+    zsl_acc=[]
+
     # start
     tf.compat.v1.reset_default_graph()
     config=tf.compat.v1.ConfigProto()
     with tf.compat.v1.Session(config=config) as sess:
+
         # Instantiate Model
         lstm = model.lstm_model(FLAGS)
 
@@ -207,42 +219,61 @@ if __name__ == "__main__":
             if FLAGS.use_embedding: #load pre-trained word embedding
                 assign_pretrained_word_embedding(sess, data, lstm)
 
-        xex_train, xex_test, _, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
+        xex_train, xex_test, yex_train, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
         
         best_caps_acc = 0
         best_zsl_acc = 0
         var_saver = tf.compat.v1.train.Saver()
-
+        
         # Training cycle
         for epoch in range(FLAGS.num_epochs):
             # training
+            epoch_start_time=time.time()
             total_batch=math.ceil(xex_train.shape[0]/FLAGS.batch_size)
+            
             for batch in tqdm(range(total_batch)):
                 begin=batch*FLAGS.batch_size
                 end=min(xex_train.shape[0], (batch+1)*FLAGS.batch_size)
                 batch_x = xex_train[begin:end]
+                batch_y = yex_train[begin:end]
                 batch_len = ex_len_train[begin:end]
                 batch_ind = y_idx_train[begin:end]
 
-                [_, train_loss, _] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
+                [_, train_loss, train_logits] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
                         feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
 
+            caps_train_loss.append(str(train_loss))
+            # training acc.
+            total_seen_pred_train = np.array([], dtype=np.int64)
+            
+            test_batch_pred = np.argmax(train_logits, 1)
+            total_seen_pred = np.concatenate((total_seen_pred_train, test_batch_pred))
+            train_acc = accuracy_score(batch_y, total_seen_pred)
+            caps_train_acc.append(str(train_acc))
+
             # validation
-            total_seen_pred = np.array([], dtype=np.int64)
+            
             [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits], 
                 feed_dict={lstm.input_x: xex_test, lstm.IND: y_idx_test, lstm.s_len: ex_len_test})
 
-            print("Epoch %d/%d - train loss: %f - val loss: %f" % (epoch, max(0, FLAGS.num_epochs-1), train_loss, val_loss))
+            caps_val_loss.append(str(val_loss))
+            
+            total_seen_pred = np.array([], dtype=np.int64)
+
+            print("Epoch %d/%d - train loss: %f - val loss: %f" % (epoch, max(0, FLAGS.num_epochs-1), 
+                                                                   train_loss, val_loss))
             
             test_batch_pred = np.argmax(logits, 1)
             total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
-            cur_caps_acc = accuracy_score(yex_test, total_seen_pred)
-            if cur_caps_acc > best_caps_acc:
-                best_caps_acc = cur_caps_acc
+            val_acc = accuracy_score(yex_test, total_seen_pred)
+            caps_val_acc.append(str(val_acc))
+            
+            if val_acc > best_caps_acc:
+                best_caps_acc = val_acc
             
             print("Intent Detection Results [INTENTCAPSNET]")
             print(classification_report(yex_test, total_seen_pred, digits=4))
-            print("Curr CAPS acc: %f - Best CAPS acc: %f" % (cur_caps_acc, best_caps_acc))
+            print("Curr CAPS acc: %f - Best CAPS acc: %f" % (val_acc, best_caps_acc))
 
             #########
             em_logits = sess.run(lstm.logits, 
@@ -253,9 +284,17 @@ if __name__ == "__main__":
             print("=================================================================================")
             # check INTENTCAPSNET-ZSL performance
             cur_zsl_acc=evaluate_zsl(data, FLAGS, sess)
+            zsl_acc.append(str(cur_zsl_acc))
             if cur_zsl_acc > best_zsl_acc:
                 best_zsl_acc = cur_zsl_acc
                 var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1) # save model
             print("Curr ZSL acc: %f - Best ZSL acc: %f" % (cur_zsl_acc, best_zsl_acc))
-
-            
+            epoch_end_time=time.time()
+            print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
+        #timelist=np.linspace(0,99,num=100)
+        with open('./statistics/eng_single.txt', 'w') as f:
+            f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
+            f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
+            f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
+            f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
+            f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')

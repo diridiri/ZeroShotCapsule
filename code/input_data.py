@@ -19,7 +19,7 @@ em_intent = ['음식 배달','의류 색상','방 예약']
 '''
 
 # english multi-word
-''' 
+
 # use below for english training
 data_prefix = '../data/nlu_data/'
 word2vec_path = data_prefix+'wiki.en.vec'
@@ -28,8 +28,8 @@ test_data_path = data_prefix + 'test_multi.txt'
 
 ex_intent = ['play music', 'search creative work', 'search screening event', 'get weather', 'book restaurant']
 em_intent = ['add to playlist', 'rate book']
-'''
 
+'''
 # english single-word
 
 data_prefix = '../data/nlu_data/'
@@ -39,7 +39,7 @@ test_data_path = data_prefix + 'test.txt'
 
 ex_intent = ['music', 'search', 'movie', 'weather', 'restaurant']
 em_intent = ['playlist', 'book']
-
+'''
 
 
 def load_w2v(file_name):

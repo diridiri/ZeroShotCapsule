@@ -292,7 +292,7 @@ if __name__ == "__main__":
             epoch_end_time=time.time()
             print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
         #timelist=np.linspace(0,99,num=100)
-        with open('./statistics/eng_single.txt', 'w') as f:
+        with open('./statistics/eng_multi.txt', 'w') as f:
             f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
             f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
             f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')

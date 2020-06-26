@@ -26,7 +26,7 @@ def setting(data):
     tf.compat.v1.flags.DEFINE_float("keep_prob", 0.8, "embedding dropout keep rate")
     tf.compat.v1.flags.DEFINE_integer("hidden_size", 32, "embedding vector size")
     tf.compat.v1.flags.DEFINE_integer("batch_size", 64, "vocab size of word vectors")
-    tf.compat.v1.flags.DEFINE_integer("num_epochs", 40, "num of epochs")
+    tf.compat.v1.flags.DEFINE_integer("num_epochs", 200, "num of epochs")
     tf.compat.v1.flags.DEFINE_integer("vocab_size", vocab_size, "vocab size of word vectors")
     tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentesnce")
     tf.compat.v1.flags.DEFINE_integer("sample_num", sample_num, "sample number of training data")
@@ -207,10 +207,7 @@ if __name__ == "__main__":
             if FLAGS.use_embedding: #load pre-trained word embedding
                 assign_pretrained_word_embedding(sess, data, lstm)
 
-        xex_train, xex_test, 
-        _, yex_test, 
-        ex_len_train, ex_len_test, 
-        y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
+        xex_train, xex_test, _, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
         
         best_caps_acc = 0
         best_zsl_acc = 0
@@ -235,7 +232,7 @@ if __name__ == "__main__":
             [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits], 
                 feed_dict={lstm.input_x: xex_test, lstm.IND: y_idx_test, lstm.s_len: ex_len_test})
 
-            print("K: %d - Epoch %d/%d - train loss: %f - val loss: %f" % (num_k, epoch, max(0, FLAGS.num_epochs-1), train_loss, val_loss))
+            print("Epoch %d/%d - train loss: %f - val loss: %f" % (epoch, max(0, FLAGS.num_epochs-1), train_loss, val_loss))
             
             test_batch_pred = np.argmax(logits, 1)
             total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))

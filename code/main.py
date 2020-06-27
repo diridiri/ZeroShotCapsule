@@ -73,9 +73,10 @@ def evaluate_zsl(data, FLAGS, sess):
 
 
     sim_ori = get_sim(data)
+    sim_new_pre = data['em_logits_pre']
     sim_new = data['em_logits']
     #sim_wSum = 0.5*(1+1/(np.expand_dims(data['label_em_len'],axis=1)+1))*sim_ori + 0.5*(1-1/(np.expand_dims(data['label_em_len'],axis=1)+1))*sim_new
-    sim_wSum = 0.4*sim_ori + 0.6*sim_new
+    sim_wSum = 0.2*sim_ori + 0.3*sim_new_pre + 0.5*sim_new
     sim_wSum = sim_wSum.astype('float32')
 
     #sim_ori = data['em_logits']
@@ -97,7 +98,7 @@ def evaluate_zsl(data, FLAGS, sess):
             feed_dict={lstm.input_x: batch_te, lstm.s_len: batch_len})
 
         #sim = tf.expand_dims(sim_ori, [0])
-        sim = tf.expand_dims(sim_new, [0])
+        sim = tf.expand_dims(sim_wSum, [0])
         sim = tf.tile(sim, [seen_votes.shape[1],1,1])
         sim = tf.expand_dims(sim, [0])
         sim = tf.tile(sim, [seen_votes.shape[0],1,1,1])
@@ -306,7 +307,15 @@ if __name__ == "__main__":
             #########
             em_logits = sess.run(lstm.logits, 
                 feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
+            if epoch > 0:
+                logits_pre = data['em_logits']
+
+
             data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
+            if epoch > 0:
+                data['em_logits_pre'] = logits_pre
+            else:
+                data['em_logits_pre'] = data['em_logits']
             #########
 
             print("=================================================================================")

@@ -28,7 +28,7 @@ def setting(data):
     tf.compat.v1.flags.DEFINE_float("keep_prob", 0.8, "embedding dropout keep rate")
     tf.compat.v1.flags.DEFINE_integer("hidden_size", 32, "embedding vector size")
     tf.compat.v1.flags.DEFINE_integer("batch_size", 64, "vocab size of word vectors")
-    tf.compat.v1.flags.DEFINE_integer("num_epochs", 100, "num of epochs")
+    tf.compat.v1.flags.DEFINE_integer("num_epochs", 200, "num of epochs")
     tf.compat.v1.flags.DEFINE_integer("vocab_size", vocab_size, "vocab size of word vectors")
     tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentesnce")
     tf.compat.v1.flags.DEFINE_integer("sample_num", sample_num, "sample number of training data")
@@ -196,8 +196,8 @@ if __name__ == "__main__":
     caps_train_loss=[]
     caps_train_acc=[]
     
-    caps_val_loss=[]
-    caps_val_acc=[]
+    # caps_val_loss=[]
+    # caps_val_acc=[]
     
     zsl_acc=[]
 
@@ -219,7 +219,7 @@ if __name__ == "__main__":
             if FLAGS.use_embedding: #load pre-trained word embedding
                 assign_pretrained_word_embedding(sess, data, lstm)
 
-        xex_train, xex_test, yex_train, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
+        # xex_train, xex_test, yex_train, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
         
         best_caps_acc = 0
         best_zsl_acc = 0
@@ -229,15 +229,15 @@ if __name__ == "__main__":
         for epoch in range(FLAGS.num_epochs):
             # training
             epoch_start_time=time.time()
-            total_batch=math.ceil(xex_train.shape[0]/FLAGS.batch_size)
+            total_batch=math.ceil(x_ex.shape[0]/FLAGS.batch_size)
             
             for batch in tqdm(range(total_batch)):
                 begin=batch*FLAGS.batch_size
-                end=min(xex_train.shape[0], (batch+1)*FLAGS.batch_size)
-                batch_x = xex_train[begin:end]
-                batch_y = yex_train[begin:end]
-                batch_len = ex_len_train[begin:end]
-                batch_ind = y_idx_train[begin:end]
+                end=min(x_ex.shape[0], (batch+1)*FLAGS.batch_size)
+                batch_x = x_ex[begin:end]
+                batch_y = y_ex_id[begin:end]
+                batch_len = ex_len[begin:end]
+                batch_ind = y_idx[begin:end]
 
                 [_, train_loss, train_logits] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
                         feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
@@ -251,34 +251,33 @@ if __name__ == "__main__":
             train_acc = accuracy_score(batch_y, total_seen_pred)
             caps_train_acc.append(str(train_acc))
 
-            # validation
+            # # validation
             
-            [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits], 
-                feed_dict={lstm.input_x: xex_test, lstm.IND: y_idx_test, lstm.s_len: ex_len_test})
+            # [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits], 
+            #     feed_dict={lstm.input_x: xex_test, lstm.IND: y_idx_test, lstm.s_len: ex_len_test})
 
-            caps_val_loss.append(str(val_loss))
+            # caps_val_loss.append(str(val_loss))
             
-            total_seen_pred = np.array([], dtype=np.int64)
+            # total_seen_pred = np.array([], dtype=np.int64)
 
-            print("Epoch %d/%d - train loss: %f - val loss: %f" % (epoch, max(0, FLAGS.num_epochs-1), 
-                                                                   train_loss, val_loss))
+            print("Epoch %d/%d - train loss: %f - train acc: %f" % (epoch, max(0, FLAGS.num_epochs-1), 
+                                                                   train_loss, train_acc))
             
-            test_batch_pred = np.argmax(logits, 1)
-            total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
-            val_acc = accuracy_score(yex_test, total_seen_pred)
-            caps_val_acc.append(str(val_acc))
+            # test_batch_pred = np.argmax(logits, 1)
+            # total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
+            # val_acc = accuracy_score(yex_test, total_seen_pred)
+            # caps_val_acc.append(str(val_acc))
             
-            if val_acc > best_caps_acc:
-                best_caps_acc = val_acc
+            # if val_acc > best_caps_acc:
+            #     best_caps_acc = val_acc
             
-            print("Intent Detection Results [INTENTCAPSNET]")
-            print(classification_report(yex_test, total_seen_pred, digits=4))
-            print("Curr CAPS acc: %f - Best CAPS acc: %f" % (val_acc, best_caps_acc))
+            # print("Intent Detection Results [INTENTCAPSNET]")
+            # print(classification_report(yex_train, total_seen_pred, digits=4))
 
             #########
-            em_logits = sess.run(lstm.logits, 
-                feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
-            data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
+            # em_logits = sess.run(lstm.logits, 
+            #     feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
+            # data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
             #########
 
             print("=================================================================================")
@@ -290,42 +289,43 @@ if __name__ == "__main__":
                 var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1) # save model
             print("Curr ZSL acc: %f - Best ZSL acc: %f" % (cur_zsl_acc, best_zsl_acc))
             epoch_end_time=time.time()
-            print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
+            # print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
         #timelist=np.linspace(0,99,num=100)
-        with open('./statistics/eng_multi.txt', 'w') as f:
+        
+        with open('./statistics/kor_single_only_zsl.txt', 'w') as f:
             f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
             f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
-            f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
-            f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
+            # f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
+            # f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
             f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')
 
-        plt.plot(np.linspace(0,99,num=100), caps_train_loss)
-        plt.plot(np.linspace(0,99,num=100), caps_val_loss)
-        plt.xlabel('epoch')
-        plt.ylabel('loss')
-        plt.title('multi-word-intent-loss')
-        plt.legend(['train_loss','val_loss'])
-        plt.savefig('./graphs/multi-word-intent-loss')
-        plt.clf()
+        # plt.plot(np.linspace(0,99,num=100), caps_train_loss)
+        # plt.plot(np.linspace(0,99,num=100), caps_val_loss)
+        # plt.xlabel('epoch')
+        # plt.ylabel('loss')
+        # plt.title('multi-word-intent-loss')
+        # plt.legend(['train_loss','val_loss'])
+        # plt.savefig('./graphs/multi-word-intent-loss')
+        # plt.clf()
 
-        fig, ax = plt.subplots()
-        ax.set_yticks([0.9621])
-        plt.plot(np.linspace(0,99,num=100), caps_train_acc)
-        plt.plot(np.linspace(0,99,num=100), caps_val_acc)
-        plt.axhline(y=0.9621, color='r', linestyle='-')
-        plt.xlabel('epoch')
-        plt.ylabel('accuracy')
-        plt.title('multi-word-intent-accuracy')
-        plt.legend(['train_acc','val_acc', 'paper'])
-        plt.savefig('./graphs/single-word-intent-accuracy')
-        plt.clf()
+        # fig, ax = plt.subplots()
+        # ax.set_yticks([0.9621])
+        # plt.plot(np.linspace(0,99,num=100), caps_train_acc)
+        # plt.plot(np.linspace(0,99,num=100), caps_val_acc)
+        # plt.axhline(y=0.9621, color='r', linestyle='-')
+        # plt.xlabel('epoch')
+        # plt.ylabel('accuracy')
+        # plt.title('multi-word-intent-accuracy')
+        # plt.legend(['train_acc','val_acc', 'paper'])
+        # plt.savefig('./graphs/single-word-intent-accuracy')
+        # plt.clf()
 
-        fig, ax = plt.subplots()
-        ax.set_yticks([0.7752])
-        plt.plot(np.linspace(0,99,num=100), zsl_acc)
-        plt.axhline(y=0.7752, color='r', linestyle='-')
-        plt.xlabel('epoch')
-        plt.ylabel('accuracy')
-        plt.title('multi-word-intent-zsl-acc')
-        plt.legend(['zsl_acc', 'paper'])
-        plt.savefig('./graphs/multi-word-intent-zsl-acc')
+        # fig, ax = plt.subplots()
+        # ax.set_yticks([0.7752])
+        # plt.plot(np.linspace(0,99,num=100), zsl_acc)
+        # plt.axhline(y=0.7752, color='r', linestyle='-')
+        # plt.xlabel('epoch')
+        # plt.ylabel('accuracy')
+        # plt.title('multi-word-intent-zsl-acc')
+        # plt.legend(['zsl_acc', 'paper'])
+        # plt.savefig('./graphs/multi-word-intent-zsl-acc')

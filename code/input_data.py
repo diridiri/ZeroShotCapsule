@@ -7,7 +7,7 @@ import tool
 from gensim.models.keyedvectors import KeyedVectors
 
 
-# use below for korean training
+# use below for korean training (MULTI)
 '''
 data_prefix = '../data/aihub_data/'
 word2vec_path = data_prefix+'ko.vec'
@@ -18,8 +18,19 @@ ex_intent = ['음식점','의류','학원','떡 집','제과','정육','과일 �
 em_intent = ['음식 배달','의류 색상','방 예약']
 '''
 
-# english multi-word
+# use below for korean training (SINGLE)
 
+data_prefix = '../data/aihub_data/'
+word2vec_path = data_prefix+'ko.vec'
+training_data_path = data_prefix + '/existing_khaiii_single.txt'
+test_data_path = data_prefix + '/emerging_khaiii_single.txt'
+
+ex_intent = ['음식점','의류','학원','떡','제과','정육','농수산물','화장품','미용실','약국','숙박']
+em_intent = ['배달','색상','예약']
+
+
+# english multi-word
+'''
 # use below for english training
 data_prefix = '../data/nlu_data/'
 word2vec_path = data_prefix+'wiki.en.vec'
@@ -28,10 +39,10 @@ test_data_path = data_prefix + 'test_multi.txt'
 
 ex_intent = ['play music', 'search creative work', 'search screening event', 'get weather', 'book restaurant']
 em_intent = ['add to playlist', 'rate book']
-
 '''
-# english single-word
 
+# english single-word
+'''
 data_prefix = '../data/nlu_data/'
 word2vec_path = data_prefix+'wiki.en.vec'
 training_data_path = data_prefix + 'train_shuffle.txt'

@@ -6,27 +6,31 @@ import tensorflow as tf
 import model
 import tool
 import math
+import time
+from tqdm import tqdm
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import normalize
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split, KFold
+import matplotlib.pyplot as plt
 
 a = Random()
 a.seed(1)
 
 def setting(data):
     vocab_size, word_emb_size = data['embedding'].shape
-    sample_num, max_time = data['x_tr'].shape
-    test_num = data['x_te'].shape[0]
-    s_cnum = np.unique(data['y_tr']).shape[0]
-    u_cnum = np.unique(data['y_te']).shape[0]
+    sample_num, max_time = data['x_ex'].shape
+    test_num = data['x_em'].shape[0]
+    s_cnum = np.unique(data['y_ex']).shape[0]
+    u_cnum = np.unique(data['y_em']).shape[0]
 
     FLAGS = tf.compat.v1.flags.FLAGS
     tf.compat.v1.flags.DEFINE_float("keep_prob", 0.8, "embedding dropout keep rate")
     tf.compat.v1.flags.DEFINE_integer("hidden_size", 32, "embedding vector size")
     tf.compat.v1.flags.DEFINE_integer("batch_size", 64, "vocab size of word vectors")
-    tf.compat.v1.flags.DEFINE_integer("num_epochs", 100, "num of epochs")
+    tf.compat.v1.flags.DEFINE_integer("num_epochs", 200, "num of epochs")
     tf.compat.v1.flags.DEFINE_integer("vocab_size", vocab_size, "vocab size of word vectors")
-    tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentence")
+    tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentesnce")
     tf.compat.v1.flags.DEFINE_integer("sample_num", sample_num, "sample number of training data")
     tf.compat.v1.flags.DEFINE_integer("test_num", test_num, "number of test data")
     tf.compat.v1.flags.DEFINE_integer("s_cnum", s_cnum, "seen class num")
@@ -34,7 +38,7 @@ def setting(data):
     tf.compat.v1.flags.DEFINE_integer("word_emb_size", word_emb_size, "embedding size of word vectors")
     tf.compat.v1.flags.DEFINE_string("ckpt_dir", './saved_models/' , "check point dir")
     tf.compat.v1.flags.DEFINE_boolean("use_embedding", True, "whether to use embedding or not.")
-    tf.compat.v1.flags.DEFINE_float("learning_rate", 0.0001, "learning rate")
+    tf.compat.v1.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
     tf.compat.v1.flags.DEFINE_float("sim_scale", 4, "sim scale")
     tf.compat.v1.flags.DEFINE_float("margin", 1.0, "ranking loss margin")
     tf.compat.v1.flags.DEFINE_float("alpha", 0.0001, "coefficient for self attention loss")
@@ -47,54 +51,36 @@ def setting(data):
 
 def get_sim(data):
     # get unseen and seen categories similarity
-    s = normalize(data['sc_vec'])
-    u = normalize(data['uc_vec'])
-    sim = tool.compute_label_sim(u, s, FLAGS.sim_scale)
+    ex = normalize(data['ex_vec'])
+    em = normalize(data['em_vec'])
+    sim = tool.compute_label_sim(em, ex, FLAGS.sim_scale)
     return sim
 
-def evaluate_train(data, FLAGS, sess):
+def evaluate_zsl(data, FLAGS, sess):
     # zero-shot testing state
     # seen votes shape (110, 2, 34, 10)
-    x_tr = data['x_tr']
-    y_tr_id = data['y_tr']
-    s_len = data['s_len']
+    x_em = data['x_em']
+    y_em_id = data['y_em']
+    em_len = data['em_len']
+    #em_intent = data['em_intent']
 
     # get unseen and seen categories similarity
     # sim shape (8, 34)
     #sim_ori = get_sim(data)
-    total_seen_pred = np.array([], dtype=np.int64)
+    
+    # origin_sim, new_sim
+    # similarity = 0.5(1+1/cak)origin_sim+0.5(1-1/k)new_sim
 
-    batch_size = FLAGS.sample_num
-    test_batch = int(math.ceil(FLAGS.sample_num / float(batch_size)))
-    #test_batch = int(math.ceil(FLAGS.test_num / float(FLAGS.batch_size)))
-    for i in range(test_batch):
-        begin_index = i * batch_size
-        end_index = min((i + 1) * batch_size, FLAGS.sample_num)
-        batch_tr = x_tr[begin_index : end_index]
-        batch_len = s_len[begin_index : end_index]
 
-        [attentions, seen_logits, seen_votes, seen_weights_c] = sess.run([
-            lstm.attention, lstm.logits, lstm.votes, lstm.weights_c],
-            feed_dict={lstm.input_x: batch_tr, lstm.s_len: batch_len})
-
-        tr_batch_pred = np.argmax(seen_logits, 1)
-        total_seen_pred = np.concatenate((total_seen_pred, tr_batch_pred))
-
-    print ("           zero-shot intent detection train set performance        ")
-    acc = accuracy_score(y_tr_id, total_seen_pred)
-    print (classification_report(y_tr_id, total_seen_pred, digits=4))
-    return acc
-
-def evaluate_test(data, FLAGS, sess):
-    # zero-shot testing state
-    # seen votes shape (110, 2, 34, 10)
-    x_te = data['x_te']
-    y_te_id = data['y_te']
-    u_len = data['u_len']
-
-    # get unseen and seen categories similarity
-    # sim shape (8, 34)
     sim_ori = get_sim(data)
+    #sim_new_pre = data['em_logits_pre']
+    sim_new = data['em_logits']
+    #sim_wSum = 0.5*(1+1/(np.expand_dims(data['label_em_len'],axis=1)+1))*sim_ori + 0.5*(1-1/(np.expand_dims(data['label_em_len'],axis=1)+1))*sim_new
+    sim_wSum = sim_new
+    sim_wSum = sim_wSum.astype('float32')
+
+    #sim_ori = data['em_logits']
+
     total_unseen_pred = np.array([], dtype=np.int64)
 
     batch_size  = FLAGS.test_num
@@ -103,15 +89,16 @@ def evaluate_test(data, FLAGS, sess):
     for i in range(test_batch):
         begin_index = i * batch_size
         end_index = min((i + 1) * batch_size, FLAGS.test_num)
-        batch_te = x_te[begin_index : end_index]
-        batch_id = y_te_id[begin_index : end_index]
-        batch_len = u_len[begin_index : end_index]
+        batch_te = x_em[begin_index : end_index]
+        batch_id = y_em_id[begin_index : end_index]
+        batch_len = em_len[begin_index : end_index]
 
         [attentions, seen_logits, seen_votes, seen_weights_c] = sess.run([
             lstm.attention, lstm.logits, lstm.votes, lstm.weights_c],
             feed_dict={lstm.input_x: batch_te, lstm.s_len: batch_len})
 
-        sim = tf.expand_dims(sim_ori, [0])
+        #sim = tf.expand_dims(sim_ori, [0])
+        sim = tf.expand_dims(sim_wSum, [0])
         sim = tf.tile(sim, [seen_votes.shape[1],1,1])
         sim = tf.expand_dims(sim, [0])
         sim = tf.tile(sim, [seen_votes.shape[0],1,1,1])
@@ -131,9 +118,9 @@ def evaluate_test(data, FLAGS, sess):
         te_batch_pred = np.argmax(te_logits, 1)
         total_unseen_pred = np.concatenate((total_unseen_pred, te_batch_pred))
 
-    print ("           zero-shot intent detection test set performance        ")
-    acc = accuracy_score(y_te_id, total_unseen_pred)
-    print (classification_report(y_te_id, total_unseen_pred, digits=4))
+    print ("Zero-shot Intent Detection Results [INTENTCAPSNET-ZSL]")
+    acc = accuracy_score(y_em_id, total_unseen_pred)
+    print (classification_report(y_em_id, total_unseen_pred, digits=4))
     return acc
 
 def generate_batch(n, batch_size):
@@ -153,6 +140,18 @@ def squash(input_tensor):
     norm = tf.norm(input_tensor, axis=2, keepdims=True)
     norm_squared = norm * norm
     return (input_tensor / norm) * (norm_squared / (1 + norm_squared))
+
+def geometric_logit(logit_l, c, bound):
+    length=len(logit_l)
+    logit_l.reverse()
+    answer=np.zeros((FLAGS.u_cnum, FLAGS.s_cnum))
+    for idx, item in enumerate(logit_l):
+        coef = math.pow(c, idx)
+        if coef < bound:
+            break
+        answer=np.add(answer, coef*item)
+    return answer
+
 
 def update_unseen_routing(votes, FLAGS, num_routing=3):
     votes_t_shape = [3, 0, 1, 2]
@@ -195,25 +194,40 @@ def update_unseen_routing(votes, FLAGS, num_routing=3):
 
 if __name__ == "__main__":
     # load data
+    
     data = input_data.read_datasets()
-    x_tr = data['x_tr']
-    y_tr = data['y_tr']
-    y_tr_id = data['y_tr']
-    y_te_id = data['y_te']
-    y_ind = data['s_label']
-    s_len = data['s_len']
+
     embedding = data['embedding']
 
-    x_te = data['x_te']
-    u_len = data['u_len']
+    x_ex = data['x_ex']
+    y_ex_id = data['y_ex']
+    ex_len = data['ex_len']
+    y_idx = data['ex_label']
+
+    x_em = data['x_em']
+    y_em_id = data['y_em']
+    em_len = data['em_len']
+
+    label_em=data['label_em']
+    label_em_len=data['label_em_len']
 
     # load settings
     FLAGS = setting(data)
+
+    logits_list=[]
+    caps_train_loss=[]
+    caps_train_acc=[]
+    
+    caps_val_loss=[]
+    caps_val_acc=[]
+    
+    zsl_acc=[]
 
     # start
     tf.compat.v1.reset_default_graph()
     config=tf.compat.v1.ConfigProto()
     with tf.compat.v1.Session(config=config) as sess:
+
         # Instantiate Model
         lstm = model.lstm_model(FLAGS)
 
@@ -227,37 +241,115 @@ if __name__ == "__main__":
             if FLAGS.use_embedding: #load pre-trained word embedding
                 assign_pretrained_word_embedding(sess, data, lstm)
 
-        best_acc = 0.0
-        evaluate_train(data, FLAGS, sess)
-        cur_acc = evaluate_test(data, FLAGS, sess)
-        if cur_acc > best_acc:
-            best_acc = cur_acc
+        best_caps_acc = 0
+        best_zsl_acc = 0
         var_saver = tf.compat.v1.train.Saver()
-
+        
         # Training cycle
-        batch_num = (int)(FLAGS.sample_num / FLAGS.batch_size)
+        data['em_logits'] = 0
         for epoch in range(FLAGS.num_epochs):
-            for batch in range(batch_num):
-                batch_index = generate_batch(FLAGS.sample_num, FLAGS.batch_size)
-                batch_x = x_tr[batch_index]
-                batch_y_id = y_tr_id[batch_index]
-                batch_len = s_len[batch_index]
-                batch_ind = y_ind[batch_index]
+            # training
+            epoch_start_time=time.time()
+            #total_batch=math.ceil(xex_train.shape[0]/FLAGS.batch_size)
+            total_batch=math.ceil(x_ex.shape[0]/FLAGS.batch_size)
+            
+            for batch in tqdm(range(total_batch)):
+                begin=batch*FLAGS.batch_size
+                end=min(x_ex.shape[0], (batch+1)*FLAGS.batch_size)
 
-                [_, loss, logits] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
+                batch_x = x_ex[begin:end]
+                batch_y = y_ex_id[begin:end]
+                batch_len = ex_len[begin:end]
+                batch_ind = y_idx[begin:end]
+
+                [_, train_loss, train_logits] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
                         feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
 
-            print ("------------------epoch : ", epoch, " Loss: ", loss, "----------------------")
+            caps_train_loss.append(str(train_loss))
+            # training acc.
+            total_seen_pred_train = np.array([], dtype=np.int64)
+            
+            test_batch_pred = np.argmax(train_logits, 1)
+            total_seen_pred = np.concatenate((total_seen_pred_train, test_batch_pred))
+            train_acc = accuracy_score(batch_y, total_seen_pred)
+            caps_train_acc.append(str(train_acc))
+            
+            # validation
+            [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits],
+                feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
+            
+            #[val_loss, logits] = sess.run([lstm.loss_val, lstm.logits],
+            #    feed_dict={lstm.input_x: xex_test, lstm.IND: y_idx_test, lstm.s_len: ex_len_test})
+
+            caps_val_loss.append(str(val_loss))
+            
+            total_seen_pred = np.array([], dtype=np.int64)
+
+            print("Epoch %d/%d - train loss: %f - val loss: %f" % (epoch, max(0, FLAGS.num_epochs-1), 
+                                                                   train_loss, val_loss))
+            
+            test_batch_pred = np.argmax(logits, 1)
+            total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
+            val_acc = train_acc
+            #val_acc = accuracy_score(yex_test, total_seen_pred)
+            caps_val_acc.append(str(val_acc))
+            
+            if val_acc > best_caps_acc:
+                best_caps_acc = val_acc
+            
+            print("Intent Detection Results [INTENTCAPSNET]")
+            print(classification_report(batch_y, total_seen_pred, digits=4))
+            #print(classification_report(yex_test, total_seen_pred, digits=4))
+            print("Curr CAPS acc: %f - Best CAPS acc: %f" % (val_acc, best_caps_acc))
+
+            #########
+            em_logits = sess.run(lstm.logits, 
+                feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
+            #if epoch > 0:
+            #    logits_pre = data['em_logits']
+
+
+            #data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
+            #data['em_logits']=(data['em_logits']+em_logits/em_logits.sum(axis=1,keepdims=1))/2
+            #data['em_logits']=0.2*data['em_logits']+0.8*em_logits/em_logits.sum(axis=1,keepdims=1)
+            sqaure = em_logits ** 2
+            data['em_logits'] = sqaure/sqaure.sum(axis=1,keepdims=1)
+
+
+            #if epoch == 0:
+            #    data['em_logits'] = data['em_logits'] / 0.8
+
+
+            #if epoch > 0:
+            #    data['em_logits_pre'] = logits_pre
+            #else:
+            #    data['em_logits_pre'] = data['em_logits']
+            #########
+
+            print("=================================================================================")
+            # check INTENTCAPSNET-ZSL performance
+            cur_zsl_acc=evaluate_zsl(data, FLAGS, sess)
+            zsl_acc.append(str(cur_zsl_acc))
+            if cur_zsl_acc > best_zsl_acc:
+                best_zsl_acc = cur_zsl_acc
+                var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1) # save model
+            print("Curr ZSL acc: %f - Best ZSL acc: %f" % (cur_zsl_acc, best_zsl_acc))
+            epoch_end_time=time.time()
+            # print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
+        #timelist=np.linspace(0,99,num=100)
+        with open('./statistics/kor_multi_1e-3_geo.txt', 'w') as f:
+            f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
+            f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
+            # f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
+            # f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
+            f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')
+
+            print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
+            #timelist=np.linspace(0,99,num=100)
             if epoch % 20 == 0:
-                evaluate_train(data, FLAGS, sess)
-            cur_acc = evaluate_test(data, FLAGS, sess)
-            if cur_acc > best_acc:
-                # save model
-                best_acc = cur_acc
-                var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1)
-            print("cur_acc", cur_acc)
-            print("best_acc", best_acc)
-
-
-
-
+                with open('statistics/eng_multiJ_square_logit.txt', 'w') as f:
+                    f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
+                    f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
+                    #f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
+                    #f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
+                    f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')

@@ -73,10 +73,10 @@ def evaluate_zsl(data, FLAGS, sess):
 
 
     sim_ori = get_sim(data)
-    sim_new_pre = data['em_logits_pre']
+    #sim_new_pre = data['em_logits_pre']
     sim_new = data['em_logits']
     #sim_wSum = 0.5*(1+1/(np.expand_dims(data['label_em_len'],axis=1)+1))*sim_ori + 0.5*(1-1/(np.expand_dims(data['label_em_len'],axis=1)+1))*sim_new
-    sim_wSum = 0.2*sim_ori + 0.3*sim_new_pre + 0.5*sim_new
+    sim_wSum = sim_new
     sim_wSum = sim_wSum.astype('float32')
 
     #sim_ori = data['em_logits']
@@ -228,13 +228,13 @@ if __name__ == "__main__":
             if FLAGS.use_embedding: #load pre-trained word embedding
                 assign_pretrained_word_embedding(sess, data, lstm)
 
-        xex_train, xex_test, yex_train, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
-        
+
         best_caps_acc = 0
         best_zsl_acc = 0
         var_saver = tf.compat.v1.train.Saver()
         
         # Training cycle
+        data['em_logits'] = 0
         for epoch in range(FLAGS.num_epochs):
             # training
             epoch_start_time=time.time()
@@ -242,27 +242,14 @@ if __name__ == "__main__":
             total_batch=math.ceil(x_ex.shape[0]/FLAGS.batch_size)
             
             for batch in tqdm(range(total_batch)):
-                #begin=batch*FLAGS.batch_size
-                #end=min(xex_train.shape[0], (batch+1)*FLAGS.batch_size)
+                begin=batch*FLAGS.batch_size
+                end=min(x_ex.shape[0], (batch+1)*FLAGS.batch_size)
 
-                #batch_x = x_ex[begin:end]
-                #batch_y = y_ex_id[begin:end]
-                #batch_len = ex_len[begin:end]
-                #batch_ind = y_idx_train[begin:end]
+                batch_x = x_ex[begin:end]
+                batch_y = y_ex_id[begin:end]
+                batch_len = ex_len[begin:end]
+                batch_ind = y_idx[begin:end]
 
-                batch_index = generate_batch(FLAGS.sample_num, FLAGS.batch_size)
-                batch_x = x_ex[batch_index]
-                batch_y = y_ex_id[batch_index]
-                batch_len = ex_len[batch_index]
-                batch_ind = y_idx[batch_index]
-
-
-
-
-                #batch_x = xex_train[begin:end]
-                #batch_y = yex_train[begin:end]
-                #batch_len = ex_len_train[begin:end]
-                #batch_ind = y_idx[begin:end]
 
                 [_, train_loss, train_logits] = sess.run([lstm.train_op, lstm.loss_val, lstm.logits],
                         feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
@@ -307,15 +294,25 @@ if __name__ == "__main__":
             #########
             em_logits = sess.run(lstm.logits, 
                 feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
-            if epoch > 0:
-                logits_pre = data['em_logits']
+            #if epoch > 0:
+            #    logits_pre = data['em_logits']
 
 
-            data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
-            if epoch > 0:
-                data['em_logits_pre'] = logits_pre
-            else:
-                data['em_logits_pre'] = data['em_logits']
+            #data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
+            #data['em_logits']=(data['em_logits']+em_logits/em_logits.sum(axis=1,keepdims=1))/2
+            #data['em_logits']=0.2*data['em_logits']+0.8*em_logits/em_logits.sum(axis=1,keepdims=1)
+            sqaure = em_logits ** 2
+            data['em_logits'] = sqaure/sqaure.sum(axis=1,keepdims=1)
+
+
+            #if epoch == 0:
+            #    data['em_logits'] = data['em_logits'] / 0.8
+
+
+            #if epoch > 0:
+            #    data['em_logits_pre'] = logits_pre
+            #else:
+            #    data['em_logits_pre'] = data['em_logits']
             #########
 
             print("=================================================================================")
@@ -330,9 +327,9 @@ if __name__ == "__main__":
             print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
             #timelist=np.linspace(0,99,num=100)
             if epoch % 20 == 0:
-                with open('./statistics/eng_multiJ.txt', 'w') as f:
+                with open('statistics/eng_multiJ_square_logit.txt', 'w') as f:
                     f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
                     f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
-                    f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
-                    f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
+                    #f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
+                    #f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
                     f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')

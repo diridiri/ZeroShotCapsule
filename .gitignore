@@ -3,3 +3,7 @@
 *index*
 *meta*
 *saved_models*
+*statistics*
+*graphs*
+*.ipynb_checkpoints*
+*main.ipynb*

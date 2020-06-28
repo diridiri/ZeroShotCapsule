@@ -11,15 +11,11 @@ from gensim.models.keyedvectors import KeyedVectors
 
 data_prefix = '../data/aihub_data/'
 word2vec_path = data_prefix+'ko.vec'
-training_data_path = data_prefix + '/existing_kkma_multi.txt'
-test_data_path = data_prefix + '/emerging_kkma_multi.txt'
+training_data_path = data_prefix + '/existing_kor_single_final_r.txt'
+test_data_path = data_prefix + '/emerging_kor_single_final_r.txt'
 
-ex_intent = ['음식 메뉴','의류 제품 및 사이즈','학원 수업','떡 집','제과 점 빵','정육 점 고기','농수산물 시장','화장품 종류','미용실 스타일','약국 의약품','숙박 시설']
-em_intent = ['배달 주문','옷 색상','방 예약']
-
-
-# ex_intent = ['음식점','의류','학원','떡 집','제과','정육','과일 채소 판매','화장품','미용실','약국','숙박']
-# em_intent = ['음식 배달 문의','의류 색상 문의','방 예약']
+ex_intent = ['배달 음식점','셀프 서비스','가방','신발','액세서리','학원','떡','제과','정육','농수산물','미용실','카페','캠핑','당구']
+em_intent = ['홀 서빙 음식점','의류','화장품','약국','호텔']
 
 
 # use below for korean training (SINGLE)

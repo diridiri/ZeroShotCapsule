@@ -27,7 +27,7 @@ def setting(data):
     FLAGS = tf.compat.v1.flags.FLAGS
     tf.compat.v1.flags.DEFINE_float("keep_prob", 0.8, "embedding dropout keep rate")
     tf.compat.v1.flags.DEFINE_integer("hidden_size", 32, "embedding vector size")
-    tf.compat.v1.flags.DEFINE_integer("batch_size", 64, "vocab size of word vectors")
+    tf.compat.v1.flags.DEFINE_integer("batch_size", 32, "vocab size of word vectors")
     tf.compat.v1.flags.DEFINE_integer("num_epochs", 200, "num of epochs")
     tf.compat.v1.flags.DEFINE_integer("vocab_size", vocab_size, "vocab size of word vectors")
     tf.compat.v1.flags.DEFINE_integer("max_time", max_time, "max number of words in one sentesnce")
@@ -72,19 +72,19 @@ def evaluate_zsl(data, FLAGS, sess):
     # get unseen and seen categories similarity
     # sim shape (8, 34)
     sim_ori = get_sim(data)
-    # sim_ori = data['sim_new'].astype('float32')
+    #sim_ori = data['sim_new'].astype('float32')
 
     total_unseen_pred = np.array([], dtype=np.int64)
 
-    batch_size  = FLAGS.test_num
+    batch_size = FLAGS.test_num
     test_batch = int(math.ceil(FLAGS.test_num / float(batch_size)))
     #test_batch = int(math.ceil(FLAGS.test_num / float(FLAGS.batch_size)))
     for i in range(test_batch):
-        begin_index = i * batch_size
-        end_index = min((i + 1) * batch_size, FLAGS.test_num)
-        batch_te = x_em[begin_index : end_index]
-        batch_id = y_em_id[begin_index : end_index]
-        batch_len = em_len[begin_index : end_index]
+        index = generate_batch(FLAGS.test_num, batch_size)
+        #end_index = min((i + 1) * batch_size, FLAGS.test_num)
+        batch_te = x_em[index]
+        batch_id = y_em_id[index]
+        batch_len = em_len[index]
 
         [attentions, seen_logits, seen_votes, seen_weights_c] = sess.run([
             lstm.attention, lstm.logits, lstm.votes, lstm.weights_c],
@@ -214,8 +214,8 @@ if __name__ == "__main__":
     # caps_val_acc=[]
     
     zsl_acc=[]
-
-    # start
+    f=open('./statistics/kor_final.txt', 'w')
+        # start
     tf.compat.v1.reset_default_graph()
     config=tf.compat.v1.ConfigProto()
     with tf.compat.v1.Session(config=config) as sess:
@@ -242,7 +242,7 @@ if __name__ == "__main__":
         # Training cycle
         for epoch in range(FLAGS.num_epochs):
             # training
-            epoch_start_time=time.time()
+            # epoch_start_time=time.time()
             total_batch=math.ceil(x_ex.shape[0]/FLAGS.batch_size)
             
             for batch in tqdm(range(total_batch)):
@@ -275,7 +275,7 @@ if __name__ == "__main__":
             # total_seen_pred = np.array([], dtype=np.int64)
 
             print("Epoch %d/%d - train loss: %f - train acc: %f" % (epoch, max(0, FLAGS.num_epochs-1), 
-                                                                   train_loss, train_acc))
+                                                                train_loss, train_acc))
             
             # test_batch_pred = np.argmax(logits, 1)
             # total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
@@ -291,9 +291,9 @@ if __name__ == "__main__":
             #########
             # em_logits = sess.run(lstm.logits, 
             #     feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
-            # logits_list.append(em_logits)
-            # sim_new=geometric_logit(logits_list, 0.5, 1e-5)
-            # data['sim_new']=sim_new/sim_new.sum(axis=1,keepdims=1)
+            # # logits_list.append(em_logits)
+            # # sim_new=geometric_logit(logits_list, 0.5, 1e-5)
+            # data['sim_new']=em_logits/em_logits.sum(axis=1,keepdims=1)
             
             #########
 
@@ -305,16 +305,19 @@ if __name__ == "__main__":
                 best_zsl_acc = cur_zsl_acc
                 var_saver.save(sess, os.path.join(FLAGS.ckpt_dir, "model.ckpt"), 1) # save model
             print("Curr ZSL acc: %f - Best ZSL acc: %f" % (cur_zsl_acc, best_zsl_acc))
-            epoch_end_time=time.time()
+            #epoch_end_time=time.time()
             # print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
+
+            if epoch%50!=0 and (epoch%50)%49==0:
+                    # f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
+                    # f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
+                    # f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
+                    # f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
+                f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')
         #timelist=np.linspace(0,99,num=100)
 
-        with open('./statistics/kor_multi_1e-3_geo.txt', 'w') as f:
-            f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
-            f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
-            # f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
-            # f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
-            f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')
+        
+            
 
         # plt.plot(np.linspace(0,99,num=100), caps_train_loss)
         # plt.plot(np.linspace(0,99,num=100), caps_val_loss)

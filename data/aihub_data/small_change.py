@@ -64,16 +64,18 @@ with open('existing_kkma_multi.txt') as f:
             else:
                 wf.write(line)
 '''
-with open('emerging_kkma_multi.txt') as f:
-    with open('emerging_kkma_multi_.txt','w') as wf:
+with open('emerging_kor_single_final.txt') as f:
+    with open('emerging_kor_single_final_.txt','w') as wf:
         for line in f.readlines():
             # if line.split('\t')[0]=='':
             #     continue
-            if line.split('\t')[0]=='음식 배달':
-                wf.write('배달 주문\t%s' % line.split('\t')[1])
-            elif line.split('\t')[0]=='의류 색상':
-                wf.write('옷 색상\t%s' % line.split('\t')[1])
-            # elif line.split('\t')[0]=='제과 점':
+            if line.split('\t')[0]=='당구장':
+                wf.write('당구 장\t%s' % line.split('\t')[1])
+            if line.split('\t')[0]=='pc 방':
+                wf.write('피시 방\t%s' % line.split('\t')[1])
+            # elif line.split('\t')[0]=='의류 색상':
+            #     wf.write('옷 색상\t%s' % line.split('\t')[1])
+            # # elif line.split('\t')[0]=='제과 점':
             #     wf.write('제과 점 빵\t%s' % line.split('\t')[1])
             # elif line.split('\t')[0]=='정육 점':
             #     wf.write('정육 점 고기\t%s' % line.split('\t')[1])

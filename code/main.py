@@ -38,7 +38,7 @@ def setting(data):
     tf.compat.v1.flags.DEFINE_integer("word_emb_size", word_emb_size, "embedding size of word vectors")
     tf.compat.v1.flags.DEFINE_string("ckpt_dir", './saved_models/' , "check point dir")
     tf.compat.v1.flags.DEFINE_boolean("use_embedding", True, "whether to use embedding or not.")
-    tf.compat.v1.flags.DEFINE_float("learning_rate", 0.0001, "learning rate")
+    tf.compat.v1.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
     tf.compat.v1.flags.DEFINE_float("sim_scale", 4, "sim scale")
     tf.compat.v1.flags.DEFINE_float("margin", 1.0, "ranking loss margin")
     tf.compat.v1.flags.DEFINE_float("alpha", 0.0001, "coefficient for self attention loss")
@@ -56,6 +56,11 @@ def get_sim(data):
     sim = tool.compute_label_sim(em, ex, FLAGS.sim_scale)
     return sim
 
+# def get_sim_new(data):
+#     act = normalize(data['sim_new'])
+#     sim = tool.compute_label_sim(data['sim_new'], FLAGS.sim_scale)
+#     return sim
+
 def evaluate_zsl(data, FLAGS, sess):
     # zero-shot testing state
     # seen votes shape (110, 2, 34, 10)
@@ -67,11 +72,7 @@ def evaluate_zsl(data, FLAGS, sess):
     # get unseen and seen categories similarity
     # sim shape (8, 34)
     sim_ori = get_sim(data)
-    
-    # origin_sim, new_sim
-    # similarity = 0.5(1+1/cak)origin_sim+0.5(1-1/k)new_sim
-
-    #sim_ori = data['em_logits']
+    # sim_ori = data['sim_new'].astype('float32')
 
     total_unseen_pred = np.array([], dtype=np.int64)
 
@@ -131,6 +132,18 @@ def squash(input_tensor):
     norm = tf.norm(input_tensor, axis=2, keepdims=True)
     norm_squared = norm * norm
     return (input_tensor / norm) * (norm_squared / (1 + norm_squared))
+
+def geometric_logit(logit_l, c, bound):
+    length=len(logit_l)
+    logit_l.reverse()
+    answer=np.zeros((FLAGS.u_cnum, FLAGS.s_cnum))
+    for idx, item in enumerate(logit_l):
+        coef = math.pow(c, idx)
+        if coef < bound:
+            break
+        answer=np.add(answer, coef*item)
+    return answer
+
 
 def update_unseen_routing(votes, FLAGS, num_routing=3):
     votes_t_shape = [3, 0, 1, 2]
@@ -193,6 +206,7 @@ if __name__ == "__main__":
     # load settings
     FLAGS = setting(data)
 
+    logits_list=[]
     caps_train_loss=[]
     caps_train_acc=[]
     
@@ -277,7 +291,10 @@ if __name__ == "__main__":
             #########
             # em_logits = sess.run(lstm.logits, 
             #     feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
-            # data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
+            # logits_list.append(em_logits)
+            # sim_new=geometric_logit(logits_list, 0.5, 1e-5)
+            # data['sim_new']=sim_new/sim_new.sum(axis=1,keepdims=1)
+            
             #########
 
             print("=================================================================================")
@@ -291,8 +308,8 @@ if __name__ == "__main__":
             epoch_end_time=time.time()
             # print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
         #timelist=np.linspace(0,99,num=100)
-        
-        with open('./statistics/kor_single_only_zsl.txt', 'w') as f:
+
+        with open('./statistics/kor_multi_1e-3_geo.txt', 'w') as f:
             f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
             f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
             # f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')

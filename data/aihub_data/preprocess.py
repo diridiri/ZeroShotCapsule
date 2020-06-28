@@ -44,7 +44,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df_food = df[(df.MAIN.str.contains('메뉴'))&(df.지식베이스.str.contains('메뉴'))]
 
         dflist=[df_order,df_food]
-        namelist=['음식 배달 문의','음식점']
+        namelist=['음식 배달','음식 메뉴']
         namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
@@ -61,7 +61,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df_cloth = df[df.지식베이스.str.contains('제품|사이즈')]
 
         dflist=[df_color, df_cloth]
-        namelist=['의류 색상 문의', '의류']
+        namelist=['의류 색상', '의류 제품']
         namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
@@ -77,7 +77,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         existing_dataset['학원']=df['SENTENCE'].to_list()
 
         dflist=[df]
-        namelist=['학원']
+        namelist=['학원 학생']
         namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
@@ -93,7 +93,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df5=df[(df.CATEGORY.str.contains('화장품'))&(df.지식베이스.str.contains('류'))]
 
         dflist=[df0, df1, df3, df4, df5]
-        namelist=['떡집','제과점','정육점','청과물','화장품']
+        namelist=['떡 집','제과 점','정육 점','농수산물 시장','화장품 종류']
         namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
@@ -105,7 +105,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df1=df[(df.CATEGORY.str.contains('약국'))&(df.지식베이스.str.contains('약|증상|감기|성분|류'))]
 
         dflist=[df0, df1]
-        namelist=['미용실','약국']
+        namelist=['미용실 스타일','약국 의약품']
         namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
@@ -122,7 +122,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df_reserve=df[df.MAIN.str.contains('예약')]
 
         dflist=[df_reserve, df_room]
-        namelist=['방 예약', '숙박']
+        namelist=['방 예약', '숙박 시설']
         namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
@@ -156,8 +156,8 @@ for existing_xlsx in existing_xlsx_list:
 #     print(key, len(emerging_dataset[key]))
 
 
-existing_text_file = open("./existing_khaiii.txt", "w", encoding="utf-8")
-emerging_text_file = open("./emerging_khaiii.txt", "w", encoding="utf-8")
+existing_text_file = open("./existing_khaiii_multi_kkma.txt", "w", encoding="utf-8")
+emerging_text_file = open("./emerging_khaiii_multi_kkma.txt", "w", encoding="utf-8")
 
 # collect existing intent and emerging intents
 
@@ -169,12 +169,12 @@ for existing_intent in tqdm(existing_dataset):
     for existing_content in tqdm(existing_contents):
         try:
             # processed_existing_content = " ".join(list(map(lambda x : x[0], okt.pos(existing_content)))).strip()
-            # processed_existing_content = " ".join(list(map(lambda x : x[0], kkma.pos(existing_content)))).strip()
-            sentencelist=[]
-            for word in api.analyze(existing_content):
-                for morph in word.morphs:
-                    sentencelist.append(morph.lex)
-            processed_existing_content = " ".join(sentencelist).strip()
+            processed_existing_content = " ".join(list(map(lambda x : x[0], kkma.pos(existing_content)))).strip()
+            # sentencelist=[]
+            # for word in api.analyze(existing_content):
+            #     for morph in word.morphs:
+            #         sentencelist.append(morph.lex)
+            # processed_existing_content = " ".join(sentencelist).strip()
         except:
             continue
         if processed_existing_content == "" or (len(processed_existing_content.split()) <= 5):
@@ -187,11 +187,12 @@ for emerging_intent in tqdm(emerging_dataset):
     for emerging_content in tqdm(emerging_contents):
         
         try:
-            sentencelist=[]
-            for word in api.analyze(emerging_content):
-                for morph in word.morphs:
-                    sentencelist.append(morph.lex)
-            processed_emerging_content = " ".join(sentencelist).strip()
+            processed_emerging_content = " ".join(list(map(lambda x : x[0], kkma.pos(emerging_content)))).strip()
+            # sentencelist=[]
+            # for word in api.analyze(emerging_content):
+            #     for morph in word.morphs:
+            #         sentencelist.append(morph.lex)
+            # processed_emerging_content = " ".join(sentencelist).strip()
         except:
             continue
         if processed_emerging_content == "" or (len(processed_emerging_content.split()) <= 5):

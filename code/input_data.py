@@ -8,18 +8,22 @@ from gensim.models.keyedvectors import KeyedVectors
 
 
 # use below for korean training (MULTI)
-'''
+
 data_prefix = '../data/aihub_data/'
 word2vec_path = data_prefix+'ko.vec'
-training_data_path = data_prefix + '/existing_khaiii_.txt'
-test_data_path = data_prefix + '/emerging_khaiii_.txt'
+training_data_path = data_prefix + '/existing_kkma_multi.txt'
+test_data_path = data_prefix + '/emerging_kkma_multi.txt'
 
-ex_intent = ['음식점','의류','학원','떡 집','제과','정육','과일 채소 판매','화장품','미용실','약국','숙박']
-em_intent = ['음식 배달','의류 색상','방 예약']
-'''
+ex_intent = ['음식 메뉴','의류 제품 및 사이즈','학원 수업','떡 집','제과 점 빵','정육 점 고기','농수산물 시장','화장품 종류','미용실 스타일','약국 의약품','숙박 시설']
+em_intent = ['배달 주문','옷 색상','방 예약']
+
+
+# ex_intent = ['음식점','의류','학원','떡 집','제과','정육','과일 채소 판매','화장품','미용실','약국','숙박']
+# em_intent = ['음식 배달 문의','의류 색상 문의','방 예약']
+
 
 # use below for korean training (SINGLE)
-
+'''
 data_prefix = '../data/aihub_data/'
 word2vec_path = data_prefix+'ko.vec'
 training_data_path = data_prefix + '/existing_khaiii_single.txt'
@@ -27,7 +31,7 @@ test_data_path = data_prefix + '/emerging_khaiii_single.txt'
 
 ex_intent = ['음식점','의류','학원','떡','제과','정육','농수산물','화장품','미용실','약국','숙박']
 em_intent = ['배달','색상','예약']
-
+'''
 
 # english multi-word
 '''

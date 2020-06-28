@@ -4,9 +4,9 @@ from konlpy.tag import Kkma, Okt
 from konlpy.utils import pprint
 from tqdm import tqdm
 from hanspell import spell_checker
-from khaiii import KhaiiiApi
+# from khaiii import KhaiiiApi
 
-api=KhaiiiApi()
+# api=KhaiiiApi()
 kkma = Kkma()
 okt=Okt()
 
@@ -24,15 +24,15 @@ em_label_list=[]
 class KhaiiiExcept(Exception):
     pass
 
-def morphlist(target_list):
-    morphex=[]
-    for label in target_list:
-        temp=[]
-        for word in api.analyze(label):
-            for morph in word.morphs:
-                temp.append(morph.lex)
-        morphex.append(" ".join(temp))
-    return morphex
+# def morphlist(target_list):
+#     morphex=[]
+#     for label in target_list:
+#         temp=[]
+#         for word in api.analyze(label):
+#             for morph in word.morphs:
+#                 temp.append(morph.lex)
+#         morphex.append(" ".join(temp))
+#     return morphex
 
 def parse_sentence_from_dataset(dataset_path, max_len):
     intent = dataset_path.split(" ")[1].split("(")[0]
@@ -44,8 +44,13 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df_food = df[(df.MAIN.str.contains('메뉴'))&(df.지식베이스.str.contains('메뉴'))]
 
         dflist=[df_order,df_food]
+<<<<<<< HEAD
         namelist=['음식 배달','음식 메뉴']
         namelist=morphlist(namelist)
+=======
+        namelist=['음식 배달 문의','음식점']
+        #namelist=morphlist(namelist)
+>>>>>>> origin/harin
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             if idx!=0:
@@ -61,8 +66,13 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df_cloth = df[df.지식베이스.str.contains('제품|사이즈')]
 
         dflist=[df_color, df_cloth]
+<<<<<<< HEAD
         namelist=['의류 색상', '의류 제품']
         namelist=morphlist(namelist)
+=======
+        namelist=['의류 색상 문의', '의류']
+        #namelist=morphlist(namelist)
+>>>>>>> origin/harin
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             if idx!=0:
@@ -77,8 +87,13 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         existing_dataset['학원']=df['SENTENCE'].to_list()
 
         dflist=[df]
+<<<<<<< HEAD
         namelist=['학원 학생']
         namelist=morphlist(namelist)
+=======
+        namelist=['학원']
+        #namelist=morphlist(namelist)
+>>>>>>> origin/harin
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             ex_label_list.append(namelist[idx])
@@ -93,8 +108,13 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df5=df[(df.CATEGORY.str.contains('화장품'))&(df.지식베이스.str.contains('류'))]
 
         dflist=[df0, df1, df3, df4, df5]
+<<<<<<< HEAD
         namelist=['떡 집','제과 점','정육 점','농수산물 시장','화장품 종류']
         namelist=morphlist(namelist)
+=======
+        namelist=['떡집','제과점','정육점','청과물','화장품']
+        # namelist=morphlist(namelist)
+>>>>>>> origin/harin
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             ex_label_list.append(namelist[idx])
@@ -105,8 +125,13 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df1=df[(df.CATEGORY.str.contains('약국'))&(df.지식베이스.str.contains('약|증상|감기|성분|류'))]
 
         dflist=[df0, df1]
+<<<<<<< HEAD
         namelist=['미용실 스타일','약국 의약품']
         namelist=morphlist(namelist)
+=======
+        namelist=['미용실','약국']
+        # namelist=morphlist(namelist)
+>>>>>>> origin/harin
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             ex_label_list.append(namelist[idx])
@@ -122,8 +147,13 @@ def parse_sentence_from_dataset(dataset_path, max_len):
         df_reserve=df[df.MAIN.str.contains('예약')]
 
         dflist=[df_reserve, df_room]
+<<<<<<< HEAD
         namelist=['방 예약', '숙박 시설']
         namelist=morphlist(namelist)
+=======
+        namelist=['방 예약', '숙박']
+        # namelist=morphlist(namelist)
+>>>>>>> origin/harin
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             if idx!=0:

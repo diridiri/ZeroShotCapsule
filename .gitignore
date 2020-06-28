@@ -7,3 +7,11 @@
 *graphs*
 *.ipynb_checkpoints*
 *main.ipynb*
+data/aihub_data/ko*.bin
+data/aihub_data/ko*.tsv
+data/aihub_data/ko*bak
+data/aihub_data/ko*.npy
+data/aihub_data/hanspell/**/*.pyc
+data/aihub_data/original_ko
+code/statistics/*
+code/__pycache__/*

@@ -217,8 +217,8 @@ def read_datasets():
     print ("[Start Dataset Reading.]")
     data = {}
     # load word2vec model
-    #w2v = load_w2v(word2vec_path)
-    fasttext = load_fasttext(fasttext_path)
+    fasttext = load_w2v(word2vec_path)
+    #fasttext = load_fasttext(fasttext_path)
     print ("[Load Word2Vec model.]")
 
     # load normalized word embeddings

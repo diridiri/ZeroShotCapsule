@@ -4,9 +4,9 @@ from konlpy.tag import Kkma, Okt
 from konlpy.utils import pprint
 from tqdm import tqdm
 from hanspell import spell_checker
-from khaiii import KhaiiiApi
+# from khaiii import KhaiiiApi
 
-api=KhaiiiApi()
+# api=KhaiiiApi()
 kkma = Kkma()
 okt=Okt()
 
@@ -24,15 +24,15 @@ em_label_list=[]
 class KhaiiiExcept(Exception):
     pass
 
-def morphlist(target_list):
-    morphex=[]
-    for label in target_list:
-        temp=[]
-        for word in api.analyze(label):
-            for morph in word.morphs:
-                temp.append(morph.lex)
-        morphex.append(" ".join(temp))
-    return morphex
+# def morphlist(target_list):
+#     morphex=[]
+#     for label in target_list:
+#         temp=[]
+#         for word in api.analyze(label):
+#             for morph in word.morphs:
+#                 temp.append(morph.lex)
+#         morphex.append(" ".join(temp))
+#     return morphex
 
 def parse_sentence_from_dataset(dataset_path, max_len):
     intent = dataset_path.split(" ")[1].split("(")[0]
@@ -45,7 +45,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
 
         dflist=[df_order,df_food]
         namelist=['음식 배달 문의','음식점']
-        namelist=morphlist(namelist)
+        #namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             if idx!=0:
@@ -62,7 +62,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
 
         dflist=[df_color, df_cloth]
         namelist=['의류 색상 문의', '의류']
-        namelist=morphlist(namelist)
+        #namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             if idx!=0:
@@ -78,7 +78,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
 
         dflist=[df]
         namelist=['학원']
-        namelist=morphlist(namelist)
+        #namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             ex_label_list.append(namelist[idx])
@@ -94,7 +94,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
 
         dflist=[df0, df1, df3, df4, df5]
         namelist=['떡집','제과점','정육점','청과물','화장품']
-        namelist=morphlist(namelist)
+        # namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             ex_label_list.append(namelist[idx])
@@ -106,7 +106,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
 
         dflist=[df0, df1]
         namelist=['미용실','약국']
-        namelist=morphlist(namelist)
+        # namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             ex_label_list.append(namelist[idx])
@@ -123,7 +123,7 @@ def parse_sentence_from_dataset(dataset_path, max_len):
 
         dflist=[df_reserve, df_room]
         namelist=['방 예약', '숙박']
-        namelist=morphlist(namelist)
+        # namelist=morphlist(namelist)
         # total_label_list.append(namelist)
         for idx, dframe in tqdm(enumerate(dflist)):
             if idx!=0:
@@ -156,8 +156,8 @@ for existing_xlsx in existing_xlsx_list:
 #     print(key, len(emerging_dataset[key]))
 
 
-existing_text_file = open("./existing_khaiii.txt", "w", encoding="utf-8")
-emerging_text_file = open("./emerging_khaiii.txt", "w", encoding="utf-8")
+existing_text_file = open("./existing_full.txt", "w", encoding="utf-8")
+emerging_text_file = open("./emerging_full.txt", "w", encoding="utf-8")
 
 # collect existing intent and emerging intents
 
@@ -170,11 +170,12 @@ for existing_intent in tqdm(existing_dataset):
         try:
             # processed_existing_content = " ".join(list(map(lambda x : x[0], okt.pos(existing_content)))).strip()
             # processed_existing_content = " ".join(list(map(lambda x : x[0], kkma.pos(existing_content)))).strip()
-            sentencelist=[]
+            """sentencelist=[]
             for word in api.analyze(existing_content):
                 for morph in word.morphs:
                     sentencelist.append(morph.lex)
-            processed_existing_content = " ".join(sentencelist).strip()
+            processed_existing_content = " ".join(sentencelist).strip()"""
+            processed_existing_content = existing_content
         except:
             continue
         if processed_existing_content == "" or (len(processed_existing_content.split()) <= 5):
@@ -187,11 +188,12 @@ for emerging_intent in tqdm(emerging_dataset):
     for emerging_content in tqdm(emerging_contents):
         
         try:
-            sentencelist=[]
+            """sentencelist=[]
             for word in api.analyze(emerging_content):
                 for morph in word.morphs:
                     sentencelist.append(morph.lex)
-            processed_emerging_content = " ".join(sentencelist).strip()
+            processed_emerging_content = " ".join(sentencelist).strip()"""
+            processed_emerging_content = emerging_content
         except:
             continue
         if processed_emerging_content == "" or (len(processed_emerging_content.split()) <= 5):

@@ -38,7 +38,7 @@ def setting(data):
     tf.compat.v1.flags.DEFINE_integer("word_emb_size", word_emb_size, "embedding size of word vectors")
     tf.compat.v1.flags.DEFINE_string("ckpt_dir", './saved_models/' , "check point dir")
     tf.compat.v1.flags.DEFINE_boolean("use_embedding", True, "whether to use embedding or not.")
-    tf.compat.v1.flags.DEFINE_float("learning_rate", 0.0001, "learning rate")
+    tf.compat.v1.flags.DEFINE_float("learning_rate", 0.001, "learning rate")
     tf.compat.v1.flags.DEFINE_float("sim_scale", 4, "sim scale")
     tf.compat.v1.flags.DEFINE_float("margin", 1.0, "ranking loss margin")
     tf.compat.v1.flags.DEFINE_float("alpha", 0.0001, "coefficient for self attention loss")
@@ -292,7 +292,7 @@ if __name__ == "__main__":
             # print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
         #timelist=np.linspace(0,99,num=100)
         
-        with open('./statistics/kor_single_only_zsl.txt', 'w') as f:
+        with open('./statistics/kor_multi_only_zsl.txt', 'w') as f:
             f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
             f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
             # f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')

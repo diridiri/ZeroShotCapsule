@@ -56,11 +56,6 @@ def get_sim(data):
     sim = tool.compute_label_sim(em, ex, FLAGS.sim_scale)
     return sim
 
-# def get_sim_new(data):
-#     act = normalize(data['sim_new'])
-#     sim = tool.compute_label_sim(data['sim_new'], FLAGS.sim_scale)
-#     return sim
-
 def evaluate_zsl(data, FLAGS, sess):
     # zero-shot testing state
     # seen votes shape (110, 2, 34, 10)
@@ -71,8 +66,20 @@ def evaluate_zsl(data, FLAGS, sess):
 
     # get unseen and seen categories similarity
     # sim shape (8, 34)
+    #sim_ori = get_sim(data)
+    
+    # origin_sim, new_sim
+    # similarity = 0.5(1+1/cak)origin_sim+0.5(1-1/k)new_sim
+
+
     sim_ori = get_sim(data)
-    # sim_ori = data['sim_new'].astype('float32')
+    #sim_new_pre = data['em_logits_pre']
+    sim_new = data['em_logits']
+    #sim_wSum = 0.5*(1+1/(np.expand_dims(data['label_em_len'],axis=1)+1))*sim_ori + 0.5*(1-1/(np.expand_dims(data['label_em_len'],axis=1)+1))*sim_new
+    sim_wSum = sim_new
+    sim_wSum = sim_wSum.astype('float32')
+
+    #sim_ori = data['em_logits']
 
     total_unseen_pred = np.array([], dtype=np.int64)
 
@@ -90,7 +97,8 @@ def evaluate_zsl(data, FLAGS, sess):
             lstm.attention, lstm.logits, lstm.votes, lstm.weights_c],
             feed_dict={lstm.input_x: batch_te, lstm.s_len: batch_len})
 
-        sim = tf.expand_dims(sim_ori, [0])
+        #sim = tf.expand_dims(sim_ori, [0])
+        sim = tf.expand_dims(sim_wSum, [0])
         sim = tf.tile(sim, [seen_votes.shape[1],1,1])
         sim = tf.expand_dims(sim, [0])
         sim = tf.tile(sim, [seen_votes.shape[0],1,1,1])
@@ -210,8 +218,8 @@ if __name__ == "__main__":
     caps_train_loss=[]
     caps_train_acc=[]
     
-    # caps_val_loss=[]
-    # caps_val_acc=[]
+    caps_val_loss=[]
+    caps_val_acc=[]
     
     zsl_acc=[]
 
@@ -233,21 +241,22 @@ if __name__ == "__main__":
             if FLAGS.use_embedding: #load pre-trained word embedding
                 assign_pretrained_word_embedding(sess, data, lstm)
 
-        # xex_train, xex_test, yex_train, yex_test, ex_len_train, ex_len_test, y_idx_train, y_idx_test = train_test_split(x_ex, y_ex_id, ex_len, y_idx, test_size=0.33, shuffle=False)
-        
         best_caps_acc = 0
         best_zsl_acc = 0
         var_saver = tf.compat.v1.train.Saver()
         
         # Training cycle
+        data['em_logits'] = 0
         for epoch in range(FLAGS.num_epochs):
             # training
             epoch_start_time=time.time()
+            #total_batch=math.ceil(xex_train.shape[0]/FLAGS.batch_size)
             total_batch=math.ceil(x_ex.shape[0]/FLAGS.batch_size)
             
             for batch in tqdm(range(total_batch)):
                 begin=batch*FLAGS.batch_size
                 end=min(x_ex.shape[0], (batch+1)*FLAGS.batch_size)
+
                 batch_x = x_ex[begin:end]
                 batch_y = y_ex_id[begin:end]
                 batch_len = ex_len[begin:end]
@@ -264,37 +273,57 @@ if __name__ == "__main__":
             total_seen_pred = np.concatenate((total_seen_pred_train, test_batch_pred))
             train_acc = accuracy_score(batch_y, total_seen_pred)
             caps_train_acc.append(str(train_acc))
+            
+            # validation
+            [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits],
+                feed_dict={lstm.input_x: batch_x, lstm.IND: batch_ind, lstm.s_len: batch_len})
+            
+            #[val_loss, logits] = sess.run([lstm.loss_val, lstm.logits],
+            #    feed_dict={lstm.input_x: xex_test, lstm.IND: y_idx_test, lstm.s_len: ex_len_test})
 
-            # # validation
+            caps_val_loss.append(str(val_loss))
             
-            # [val_loss, logits] = sess.run([lstm.loss_val, lstm.logits], 
-            #     feed_dict={lstm.input_x: xex_test, lstm.IND: y_idx_test, lstm.s_len: ex_len_test})
+            total_seen_pred = np.array([], dtype=np.int64)
 
-            # caps_val_loss.append(str(val_loss))
+            print("Epoch %d/%d - train loss: %f - val loss: %f" % (epoch, max(0, FLAGS.num_epochs-1), 
+                                                                   train_loss, val_loss))
             
-            # total_seen_pred = np.array([], dtype=np.int64)
-
-            print("Epoch %d/%d - train loss: %f - train acc: %f" % (epoch, max(0, FLAGS.num_epochs-1), 
-                                                                   train_loss, train_acc))
+            test_batch_pred = np.argmax(logits, 1)
+            total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
+            val_acc = train_acc
+            #val_acc = accuracy_score(yex_test, total_seen_pred)
+            caps_val_acc.append(str(val_acc))
             
-            # test_batch_pred = np.argmax(logits, 1)
-            # total_seen_pred = np.concatenate((total_seen_pred, test_batch_pred))
-            # val_acc = accuracy_score(yex_test, total_seen_pred)
-            # caps_val_acc.append(str(val_acc))
+            if val_acc > best_caps_acc:
+                best_caps_acc = val_acc
             
-            # if val_acc > best_caps_acc:
-            #     best_caps_acc = val_acc
-            
-            # print("Intent Detection Results [INTENTCAPSNET]")
-            # print(classification_report(yex_train, total_seen_pred, digits=4))
+            print("Intent Detection Results [INTENTCAPSNET]")
+            print(classification_report(batch_y, total_seen_pred, digits=4))
+            #print(classification_report(yex_test, total_seen_pred, digits=4))
+            print("Curr CAPS acc: %f - Best CAPS acc: %f" % (val_acc, best_caps_acc))
 
             #########
-            # em_logits = sess.run(lstm.logits, 
-            #     feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
-            # logits_list.append(em_logits)
-            # sim_new=geometric_logit(logits_list, 0.5, 1e-5)
-            # data['sim_new']=sim_new/sim_new.sum(axis=1,keepdims=1)
-            
+            em_logits = sess.run(lstm.logits, 
+                feed_dict={lstm.input_x: label_em, lstm.s_len: label_em_len})
+            #if epoch > 0:
+            #    logits_pre = data['em_logits']
+
+
+            #data['em_logits']=em_logits/em_logits.sum(axis=1,keepdims=1)
+            #data['em_logits']=(data['em_logits']+em_logits/em_logits.sum(axis=1,keepdims=1))/2
+            #data['em_logits']=0.2*data['em_logits']+0.8*em_logits/em_logits.sum(axis=1,keepdims=1)
+            sqaure = em_logits ** 2
+            data['em_logits'] = sqaure/sqaure.sum(axis=1,keepdims=1)
+
+
+            #if epoch == 0:
+            #    data['em_logits'] = data['em_logits'] / 0.8
+
+
+            #if epoch > 0:
+            #    data['em_logits_pre'] = logits_pre
+            #else:
+            #    data['em_logits_pre'] = data['em_logits']
             #########
 
             print("=================================================================================")
@@ -316,33 +345,12 @@ if __name__ == "__main__":
             # f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
             f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')
 
-        # plt.plot(np.linspace(0,99,num=100), caps_train_loss)
-        # plt.plot(np.linspace(0,99,num=100), caps_val_loss)
-        # plt.xlabel('epoch')
-        # plt.ylabel('loss')
-        # plt.title('multi-word-intent-loss')
-        # plt.legend(['train_loss','val_loss'])
-        # plt.savefig('./graphs/multi-word-intent-loss')
-        # plt.clf()
-
-        # fig, ax = plt.subplots()
-        # ax.set_yticks([0.9621])
-        # plt.plot(np.linspace(0,99,num=100), caps_train_acc)
-        # plt.plot(np.linspace(0,99,num=100), caps_val_acc)
-        # plt.axhline(y=0.9621, color='r', linestyle='-')
-        # plt.xlabel('epoch')
-        # plt.ylabel('accuracy')
-        # plt.title('multi-word-intent-accuracy')
-        # plt.legend(['train_acc','val_acc', 'paper'])
-        # plt.savefig('./graphs/single-word-intent-accuracy')
-        # plt.clf()
-
-        # fig, ax = plt.subplots()
-        # ax.set_yticks([0.7752])
-        # plt.plot(np.linspace(0,99,num=100), zsl_acc)
-        # plt.axhline(y=0.7752, color='r', linestyle='-')
-        # plt.xlabel('epoch')
-        # plt.ylabel('accuracy')
-        # plt.title('multi-word-intent-zsl-acc')
-        # plt.legend(['zsl_acc', 'paper'])
-        # plt.savefig('./graphs/multi-word-intent-zsl-acc')
+            print("Epoch elapsed time: %f" % (epoch_end_time-epoch_start_time))
+            #timelist=np.linspace(0,99,num=100)
+            if epoch % 20 == 0:
+                with open('statistics/eng_multiJ_square_logit.txt', 'w') as f:
+                    f.write("caps_train_loss: "+", ".join(caps_train_loss)+'\n')
+                    f.write("caps_train_acc: "+", ".join(caps_train_acc)+'\n')
+                    #f.write("caps_val_loss: "+", ".join(caps_val_loss)+'\n')
+                    #f.write("caps_val_acc: "+", ".join(caps_val_acc)+'\n')
+                    f.write("zsl_acc: "+", ".join(zsl_acc)+'\n')

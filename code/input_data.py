@@ -32,8 +32,19 @@ test_data_path = data_prefix + '/emerging_khaiii_single.txt'
 ex_intent = ['음식점','의류','학원','떡','제과','정육','농수산물','화장품','미용실','약국','숙박']
 em_intent = ['배달','색상','예약']
 '''
+# use below for korean training
+'''
+data_prefix = '../data/aihub_data/'
+word2vec_path = data_prefix+'ko.vec'
+training_data_path = data_prefix + '/existing_khaiii_.txt'
+test_data_path = data_prefix + '/emerging_khaiii_.txt'
+
+ex_intent = ['음식점','의류','학원','떡 집','제과','정육','과일 채소 판매','화장품','미용실','약국','숙박']
+em_intent = ['음식 배달','의류 색상','방 예약']
+'''
 
 # english multi-word
+
 '''
 # use below for english training
 data_prefix = '../data/nlu_data/'
@@ -47,6 +58,7 @@ em_intent = ['add to playlist', 'rate book']
 
 # english single-word
 '''
+
 data_prefix = '../data/nlu_data/'
 word2vec_path = data_prefix+'wiki.en.vec'
 training_data_path = data_prefix + 'train_shuffle.txt'
@@ -106,7 +118,8 @@ def load_vec(file_path, w2v, class_dict, in_max_len):
     s_len = [] # input sentence length
     max_len = 0
 
-    for line in open(file_path):
+    #for line in open(file_path):
+    for line in open(file_path, 'rt', encoding='UTF8'):
         arr = line.strip().split('\t')
         label = [w for w in arr[0].split(' ')]
         question = [w for w in arr[1].split(' ')]
